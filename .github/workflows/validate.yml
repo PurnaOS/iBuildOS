@@ -1,0 +1,62 @@
+name: validate
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -o iBuild ./cmd/iBuild
+
+      - name: Test
+        run: go test ./...
+
+      - name: Validate bundle
+        id: validate
+        run: |
+          set +e
+          ./iBuild validate . --format json > findings.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          cat findings.json
+
+      - name: Annotate findings
+        if: always()
+        run: |
+          jq -r '.findings[] | [.severity, .file, (.line // 0 | tostring), .rule, .message] | @tsv' findings.json |
+          while IFS=$'\t' read -r sev file line rule msg; do
+            cmd="warning"; [ "$sev" = "error" ] && cmd="error"
+            if [ "$line" -gt 0 ] 2>/dev/null; then
+              echo "::${cmd} file=${file},line=${line}::[${rule}] ${msg}"
+            else
+              echo "::${cmd} file=${file}::[${rule}] ${msg}"
+            fi
+          done
+
+          {
+            echo "### iBuild traceability report"
+            echo ""
+            echo "| severity | location | rule | message |"
+            echo "|---|---|---|---|"
+            jq -r '.findings[] | "| \(.severity) | \(.file):\(.line // 0) | \(.rule) | \(.message) |"' findings.json
+            echo ""
+            jq -r '"**\(.summary.errors) error(s), \(.summary.warnings) warning(s)**"' findings.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on findings
+        if: always()
+        run: '[ "${{ steps.validate.outputs.exit }}" = "0" ] || exit 1'
