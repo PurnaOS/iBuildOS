@@ -12,6 +12,9 @@ fields:
     required: true
     one_of: [todo, in_progress, blocked, done]
     doc: Current lifecycle state.
+  code:
+    type: list
+    doc: Repo-relative path globs to the source this task produces. At least one must match a file on disk; a `done` task must declare code.
 relationships:
   parent:
     target: Story

@@ -1,0 +1,10 @@
+# iBuildOS bundle config. The knowledge bundle is rooted at docs/; only files
+# matched by the artifacts globs are strict-validated (README, CLAUDE.md,
+# APPROACH.md, docs/types/, and source code stay out of scope).
+root: docs
+types: types
+artifacts:
+  - requirements/**
+  - work/**
+  - tests/**
+code_field: code
