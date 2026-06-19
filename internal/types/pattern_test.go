@@ -22,6 +22,7 @@ func TestCompilePattern(t *testing.T) {
 		{"a.b-<number>", "a.b-3", true, false},  // literal dot escaped
 		{"a.b-<number>", "axb-3", false, false}, // dot is literal, not any-char
 		{"<bogus>", "x", false, true},
+		{"v<number", "v<number", true, false}, // unmatched '<' is literal, must not hang
 	}
 	for _, tt := range tests {
 		re, err := compilePattern(tt.pattern)

@@ -38,6 +38,11 @@ func compilePattern(pattern string) (*regexp.Regexp, error) {
 					continue
 				}
 			}
+			if pattern[i] == '<' {
+				b.WriteString(regexp.QuoteMeta("<")) // unmatched '<' (no '>'): emit literal, advance to avoid stalling
+				i++
+				continue
+			}
 			next := strings.IndexByte(pattern[i:], '<')
 			if next < 0 {
 				b.WriteString(regexp.QuoteMeta(pattern[i:]))
