@@ -64,5 +64,27 @@ requirement (directly or via its parent Story).
 
 `cmd/iBuild` (thin) · `internal/okf` (frontmatter + glob, type-agnostic) ·
 `internal/types` (Layer 1 registry + dialect) · `internal/validate` (Layer 2a
-per-doc, 2b graph + completeness) · `internal/report` (text + stable JSON) ·
-`internal/config` · `internal/model` (Finding). Build with `CGO_ENABLED=0`.
+per-doc, 2b graph + completeness; `export.go` = the `graph` projection) ·
+`internal/graphx` (public graph model + JSON + focus) · `internal/scaffold`
+(`init`, embeds the base profile + bundle skeleton) · `internal/report` (text +
+stable JSON) · `internal/config` · `internal/model` (Finding). Build with
+`CGO_ENABLED=0`.
+
+## Phase 2–4 — authoring & planning (deterministic core stays AI-free)
+
+`iBuild init` scaffolds a new project (never overwrites; init→validate round-trips
+to zero errors). `iBuild graph [--node/--depth/--rel/--body]` is a deterministic,
+sorted JSON projection of the typed link graph — the LLM's fast-context oracle and
+a future viz hook; it computes no findings and is not a gate. Both stay data-driven
+(node `fields` is a generic map — never `Get("title")`) and tolerant (unknown
+types / unresolved links still appear). `graph` shares discovery with `validate`
+via `loadArtifacts`/`buildGraph` (export uses a throwaway collector). The AI layer
+lives entirely in `plugin/` (a Claude Code plugin: `/ibuild-*` skills + two
+read-only subagents) — the **single source of truth**. `init` vendors a
+byte-identical mirror into each project's `.claude/` (skills + agents + the
+validate-on-edit hook as `settings.json`) so a clone is self-contained, no
+marketplace install. `plugin/` is canonical: edit it, then
+`go generate ./internal/scaffold` to resync `templates/.claude`; `TestClaudeMirror`
+is the drift gate. The AI layer orchestrates the binary, is suggest-only, never
+auto-commits, and never runs inside the linter. New gates: `TestInitRoundTrip`,
+`TestGraphDogfood`, `TestClaudeMirror`.

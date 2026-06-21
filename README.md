@@ -65,3 +65,46 @@ annotations.
 
 iBuildOS is built with iBuildOS: `go test ./...` runs `TestDogfood`, which asserts
 `iBuild validate .` finds zero errors on this repo.
+
+## Authoring & planning (Phases 2–4)
+
+Phase 1 is the gate. Phases 2–4 add the layer that makes a bundle pleasant to
+author and keep honest: a scaffolder, a knowledge-graph export, and a Claude Code
+plugin that drives the whole lifecycle. The linter stays deterministic and AI-free;
+the AI layer wraps it and is always suggest-only.
+
+### `iBuild init` — scaffold a new project
+
+```sh
+./iBuild init .            # scaffold .ibuildos.yaml, docs/types/, the bundle dirs, the guide
+./iBuild init . --example  # also drop a tiny example requirement
+```
+
+Writes the base OKF-SDLC profile and a clean bundle that `iBuild validate .` passes
+immediately. It **never overwrites** an existing file, so it is safe to re-run.
+
+### `iBuild graph` — the knowledge graph (fast LLM context)
+
+`iBuild graph` derives the typed artifact graph by walking frontmatter links — the
+requirements analog of a source-code graph (SCIP/LSIF). Deterministic, sorted, no
+server: an agent (or you) gets structured context in one call instead of grepping.
+
+```sh
+./iBuild graph .                                          # whole graph, JSON
+./iBuild graph . --node /work/task-0001.md --depth 1     # one node + its neighbors
+./iBuild graph . --node /requirements/fr-0001.md --rel implements,verified_by
+./iBuild graph . --body full                             # full bodies (for semantic review)
+```
+
+Nodes carry `type`, `status`, a generic `fields` map (no taxonomy hardcoded), and a
+body excerpt; edges carry the relationship, declared `target`, actual `targetType`,
+and `resolved` (dangling links still appear). See `docs/develop-with-ibuildos.md`.
+
+### The Claude Code plugin
+
+`plugin/` is an installable plugin (`/plugin marketplace add PurnaOS/iBuildOS`) that
+adds the lifecycle skills — `/ibuild-init`, `/ibuild-discover`, `/ibuild-plan`,
+`/ibuild-author`, `/ibuild-implement`, `/ibuild-bug`, `/ibuild-audit`,
+`/ibuild-contradict`, `/ibuild-status`, `/ibuild-ship` — plus two read-only subagents (a traceability auditor and an AI
+contradiction-checker). All of it reads `docs/types/` at runtime and defers to
+`iBuild validate`; none of it commits on its own.
