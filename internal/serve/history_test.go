@@ -46,7 +46,7 @@ func historyServer(t *testing.T) (base string, c1, c2, c3 string) {
 	commitAt(t, dir, "2026-06-21T12:00:00", "revise task body")
 	c3 = headSHA(t, dir)
 
-	srv := httptest.NewServer(New(dir, cfg).Handler())
+	srv := httptest.NewServer(New(dir, cfg, "test").Handler())
 	t.Cleanup(srv.Close)
 	t.Cleanup(func() { assertWorktreesClean(t, dir) })
 	return srv.URL, c1, c2, c3

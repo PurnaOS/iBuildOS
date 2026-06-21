@@ -13,6 +13,8 @@
 //	GET  /validate  application/json findings + error/warning counts
 //	GET  /focus     application/json graphx.Focus projection (?node&depth&rel)
 //	GET  /config    application/json the resolved ChainConfig
+//	GET  /agents.md text/markdown    contract.AgentsMD: the AGENTS.md contract
+//	GET  /catalog   application/json machine catalog of this oracle's endpoints
 //	GET  /healthz   text/plain       "ok"
 //	GET  /events    text/event-stream a single "ready" event then heartbeats
 //	POST /simulate  application/json the AI-free predictive diff (see simulate.go)
@@ -45,9 +47,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/PurnaOS/iBuildOS/internal/config"
+	"github.com/PurnaOS/iBuildOS/internal/contract"
 	"github.com/PurnaOS/iBuildOS/internal/graphx"
 	"github.com/PurnaOS/iBuildOS/internal/model"
 	"github.com/PurnaOS/iBuildOS/internal/site"
@@ -62,6 +66,7 @@ import (
 type Server struct {
 	bundleDir string
 	cfg       config.Config
+	version   string
 	bcast     *Broadcaster
 	mux       *http.ServeMux
 
@@ -78,11 +83,16 @@ type Server struct {
 }
 
 // New builds a Server for a bundle. cfg should already carry any --types
-// override the caller resolved.
-func New(bundleDir string, cfg config.Config) *Server {
+// override the caller resolved. version is the build version surfaced by the
+// contract endpoints (/agents.md, /catalog); an empty string defaults to "dev".
+func New(bundleDir string, cfg config.Config, version string) *Server {
+	if version == "" {
+		version = "dev"
+	}
 	s := &Server{
 		bundleDir:    bundleDir,
 		cfg:          cfg,
+		version:      version,
 		bcast:        NewBroadcaster(),
 		authorRunner: execAuthorRunner,
 		snaps:        &snapCache{},
@@ -154,6 +164,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/validate", s.handleValidate)
 	s.mux.HandleFunc("/focus", s.handleFocus)
 	s.mux.HandleFunc("/config", s.handleConfig)
+	s.mux.HandleFunc("/agents.md", s.handleAgentsMD)
+	s.mux.HandleFunc("/catalog", s.handleCatalog)
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/simulate", s.handleSimulate)
@@ -312,6 +324,83 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		ProposedStatuses:  ch.ProposedStatuses,
 		DoneStatuses:      ch.DoneStatuses,
 		PassingStatuses:   ch.PassingStatuses,
+	})
+}
+
+// handleAgentsMD serves the AGENTS.md contract document for the served bundle as
+// text/markdown — the same bytes `iBuild agents` emits. It is a deterministic
+// projection of the resolved ChainConfig (taxonomy-blind) plus the build version.
+func (s *Server) handleAgentsMD(w http.ResponseWriter, r *http.Request) {
+	doc := contract.AgentsMD(s.cfg, s.version)
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, doc)
+}
+
+// catalogEndpoint describes one HTTP surface of the serve oracle.
+type catalogEndpoint struct {
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	Description string `json:"description"`
+}
+
+// catalogResponse is the machine catalog of the serve oracle: a stable,
+// self-describing manifest so an agent can discover the read/simulate/author
+// surface programmatically. The chain projection reuses configResponse so the
+// vocabulary stays data-driven (every name comes from cfg.Chain).
+type catalogResponse struct {
+	Generator string            `json:"generator"`
+	Version   string            `json:"version"`
+	Endpoints []catalogEndpoint `json:"endpoints"`
+	Chain     configResponse    `json:"chain"`
+}
+
+// handleCatalog serves a deterministic machine catalog of the serve oracle. The
+// endpoint list is declared statically (no map ranged for output) and sorted by
+// (path, method) so the JSON is byte-stable across runs.
+func (s *Server) handleCatalog(w http.ResponseWriter, r *http.Request) {
+	endpoints := []catalogEndpoint{
+		{"GET", "/", "iBuild Studio UI: site.Render of the current bundle (text/html)"},
+		{"GET", "/graph", "typed link graph as JSON (the fast-context oracle)"},
+		{"GET", "/validate", "deterministic findings plus error/warning counts"},
+		{"GET", "/focus", "graph neighborhood projection (?node&depth&rel)"},
+		{"GET", "/config", "the resolved ChainConfig vocabulary as JSON"},
+		{"GET", "/agents.md", "AGENTS.md contract surface (text/markdown)"},
+		{"GET", "/catalog", "this machine catalog of the serve oracle"},
+		{"GET", "/healthz", "liveness probe (text/plain ok)"},
+		{"GET", "/events", "server-sent event stream of bundle changes"},
+		{"POST", "/simulate", "AI-free predictive diff for a set of edit ops"},
+		{"GET", "/history", "windowed log of commits touching the bundle"},
+		{"GET", "/history/at", "graph + findings as of a commit"},
+		{"GET", "/history/diff", "predictive diff shape between two commits"},
+		{"GET", "/history/staleness", "links whose source committed after the target"},
+		{"GET", "/author/preflight", "is local Claude Code available? (suggest-only)"},
+		{"POST", "/author", "run a headless ibuild authoring skill (suggest-only)"},
+		{"GET", "/author/diff", "the working-tree unified diff (read-only)"},
+		{"POST", "/author/discard", "git checkout -- named paths (the only git mutation)"},
+	}
+	sort.Slice(endpoints, func(i, j int) bool {
+		if endpoints[i].Path != endpoints[j].Path {
+			return endpoints[i].Path < endpoints[j].Path
+		}
+		return endpoints[i].Method < endpoints[j].Method
+	})
+	ch := s.cfg.Chain
+	writeJSON(w, http.StatusOK, catalogResponse{
+		Generator: "iBuild serve",
+		Version:   s.version,
+		Endpoints: endpoints,
+		Chain: configResponse{
+			ImplementsRel:     ch.ImplementsRel,
+			VerifiesRel:       ch.VerifiesRel,
+			VerifiedByRel:     ch.VerifiedByRel,
+			ParentRel:         ch.ParentRel,
+			CodeField:         ch.CodeField,
+			ActiveReqStatuses: ch.ActiveReqStatuses,
+			ProposedStatuses:  ch.ProposedStatuses,
+			DoneStatuses:      ch.DoneStatuses,
+			PassingStatuses:   ch.PassingStatuses,
+		},
 	})
 }
 

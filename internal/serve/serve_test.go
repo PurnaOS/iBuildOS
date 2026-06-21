@@ -131,7 +131,7 @@ func unlinkedBundle() map[string]string {
 func newTestServer(t *testing.T) (*httptest.Server, string, config.Config) {
 	t.Helper()
 	dir, cfg := gitBundle(t, unlinkedBundle())
-	srv := httptest.NewServer(New(dir, cfg).Handler())
+	srv := httptest.NewServer(New(dir, cfg, "test").Handler())
 	t.Cleanup(srv.Close)
 	return srv, dir, cfg
 }
@@ -145,6 +145,67 @@ func get(t *testing.T, base, path string) (*http.Response, []byte) {
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	return resp, body
+}
+
+func TestAgentsMDEndpoint(t *testing.T) {
+	srv, _, _ := newTestServer(t)
+	resp, body := get(t, srv.URL, "/agents.md")
+	if resp.StatusCode != 200 {
+		t.Fatalf("agents.md: %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/markdown") {
+		t.Errorf("agents.md content-type = %q, want text/markdown", ct)
+	}
+	if !bytes.Contains(body, []byte("# AGENTS.md")) {
+		t.Errorf("agents.md body did not look like the contract doc: %q", body[:min(80, len(body))])
+	}
+	if !bytes.Contains(body, []byte("implements")) {
+		t.Errorf("agents.md missing the default implements rel")
+	}
+}
+
+func TestCatalogEndpoint(t *testing.T) {
+	srv, _, _ := newTestServer(t)
+	resp, body := get(t, srv.URL, "/catalog")
+	if resp.StatusCode != 200 {
+		t.Fatalf("catalog: %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("catalog content-type = %q, want application/json", ct)
+	}
+	var cat catalogResponse
+	if err := json.Unmarshal(body, &cat); err != nil {
+		t.Fatalf("catalog not JSON: %v", err)
+	}
+	if cat.Generator != "iBuild serve" {
+		t.Errorf("catalog generator = %q", cat.Generator)
+	}
+	if len(cat.Endpoints) == 0 {
+		t.Error("catalog has no endpoints")
+	}
+	// the catalog must advertise itself + the contract doc + the gate
+	want := map[string]bool{"/catalog": false, "/agents.md": false, "/validate": false, "/graph": false}
+	for _, e := range cat.Endpoints {
+		if _, ok := want[e.Path]; ok {
+			want[e.Path] = true
+		}
+	}
+	for p, found := range want {
+		if !found {
+			t.Errorf("catalog missing endpoint %q", p)
+		}
+	}
+	// endpoints sorted by (path, method) for byte-stability
+	for i := 1; i < len(cat.Endpoints); i++ {
+		a, b := cat.Endpoints[i-1], cat.Endpoints[i]
+		if a.Path > b.Path || (a.Path == b.Path && a.Method > b.Method) {
+			t.Errorf("catalog endpoints not sorted at %d: %q then %q", i, a.Path, b.Path)
+		}
+	}
+	// chain vocabulary comes from the resolved config
+	if cat.Chain.ImplementsRel != "implements" {
+		t.Errorf("catalog chain.implementsRel = %q", cat.Chain.ImplementsRel)
+	}
 }
 
 func TestHealthz(t *testing.T) {

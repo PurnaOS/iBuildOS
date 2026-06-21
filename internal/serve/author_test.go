@@ -21,7 +21,7 @@ import (
 func authorServer(t *testing.T, artifacts map[string]string) (*httptest.Server, string, *Server) {
 	t.Helper()
 	dir, cfg := gitBundle(t, artifacts)
-	s := New(dir, cfg)
+	s := New(dir, cfg, "test")
 	hs := httptest.NewServer(s.Handler())
 	t.Cleanup(hs.Close)
 	return hs, dir, s
