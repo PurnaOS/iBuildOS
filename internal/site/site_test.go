@@ -51,6 +51,56 @@ func render(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
+// TestTraceScoreAndCoverage exercises the Phase-1b deterministic KPIs: one
+// deep-covered requirement (implemented + verified), one shallow (implemented
+// only), one orphan (neither) -> Trace Score = round(1/3) = 33%.
+func TestTraceScoreAndCoverage(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, c string) {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("types/req.md", "---\ntype: ArtifactType\ndefines: Req\n---\n")
+	write("types/work.md", "---\ntype: ArtifactType\ndefines: Work\nrelationships:\n  implements:\n    target: Req\n---\n")
+	write("types/tst.md", "---\ntype: ArtifactType\ndefines: Tst\nrelationships:\n  verifies:\n    target: Req\n---\n")
+	write("docs/requirements/r-deep.md", "---\ntype: Req\nid: R-1\n---\n")
+	write("docs/requirements/r-shallow.md", "---\ntype: Req\nid: R-2\n---\n")
+	write("docs/requirements/r-orphan.md", "---\ntype: Req\nid: R-3\n---\n")
+	write("docs/work/w1.md", "---\ntype: Work\nid: W-1\nlinks:\n  implements: [/requirements/r-deep.md]\n---\n")
+	write("docs/work/w2.md", "---\ntype: Work\nid: W-2\nlinks:\n  implements: [/requirements/r-shallow.md]\n---\n")
+	write("docs/tests/t1.md", "---\ntype: Tst\nid: T-1\nlinks:\n  verifies: [/requirements/r-deep.md]\n---\n")
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.TypesDirOverride = filepath.Join(dir, "types")
+	g, reg, err := validate.GraphWithRegistry(dir, cfg, graphx.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	vm := build(g, validate.Validate(dir, cfg), cfg, reg)
+
+	if vm.ReqTotal != 3 || vm.ReqCovered != 1 || vm.TraceScore != 33 {
+		t.Fatalf("Trace Score: got total=%d covered=%d score=%d, want 3/1/33", vm.ReqTotal, vm.ReqCovered, vm.TraceScore)
+	}
+	want := map[string]string{
+		"/requirements/r-deep.md":    "deep",
+		"/requirements/r-shallow.md": "shallow",
+		"/requirements/r-orphan.md":  "none",
+	}
+	for _, n := range vm.Nodes {
+		if exp, ok := want[n.Key]; ok && n.Coverage != exp {
+			t.Errorf("%s coverage = %q, want %q", n.Key, n.Coverage, exp)
+		}
+	}
+}
+
 func TestSiteRender(t *testing.T) {
 	out := render(t)
 	s := string(out)

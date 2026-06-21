@@ -3,6 +3,7 @@ package validate
 import (
 	"encoding/json"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -130,16 +131,16 @@ func validateJSONSchemas(a *artifact, schemas []*yaml.Node, c *model.Collector) 
 		sdoc = jsonNormalize(sdoc)
 		comp := jsonschema.NewCompiler()
 		if err := comp.AddResource("mem://schema.json", sdoc); err != nil {
-			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "invalid json_schema: %v", err)
+			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "invalid json_schema: %s", stableSchemaError(err))
 			continue
 		}
 		sch, err := comp.Compile("mem://schema.json")
 		if err != nil {
-			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "invalid json_schema: %v", err)
+			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "invalid json_schema: %s", stableSchemaError(err))
 			continue
 		}
 		if err := sch.Validate(inst); err != nil {
-			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "frontmatter fails json_schema: %s", oneLine(err.Error()))
+			c.Errf(a.path, a.doc.FrontStartLine(), "doc.jsonSchema", "frontmatter fails json_schema: %s", stableSchemaError(err))
 		}
 	}
 }
@@ -158,6 +159,22 @@ func jsonNormalize(v any) any {
 	return out
 }
 
-func oneLine(s string) string {
-	return strings.Join(strings.Fields(s), " ")
+// stableSchemaError renders a jsonschema error as a single, deterministic line.
+// The library's Error() is multi-line and its causes can be emitted in
+// map-iteration order, which would break iBuild's byte-identical output guarantee
+// and the one-finding-per-line text format (review #6). Collapsing to a sorted,
+// deduped, whitespace-normalized set of lines makes the message order-independent.
+func stableSchemaError(err error) string {
+	seen := map[string]bool{}
+	var parts []string
+	for _, ln := range strings.Split(err.Error(), "\n") {
+		ln = strings.Join(strings.Fields(ln), " ")
+		if ln == "" || seen[ln] {
+			continue
+		}
+		seen[ln] = true
+		parts = append(parts, ln)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, "; ")
 }

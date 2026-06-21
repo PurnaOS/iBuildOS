@@ -158,7 +158,10 @@ function hasErr(n){return (n.findings||[]).some(f=>f.sev==="error");}
   NODES.forEach(n=>(n.findings||[]).forEach(f=>f.sev==="error"?errs++:warns++));
   const pct=reqs.length?Math.round(100*covered/reqs.length):100;
   const tone=pct===100?"good":pct>=60?"warn":"bad";
+  const ts=DATA.traceScore??100;
+  const tsTone=ts===100?"good":ts>=60?"warn":"bad";
   document.getElementById("health").innerHTML=
+    `<span class="pill ${tsTone}" title="requirements that are implemented AND verified"><b>Trace Score ${ts}%</b> · ${DATA.reqCovered||0}/${DATA.reqTotal||0} deep-covered</span>`+
     `<span class="pill ${tone}"><b>${covered}/${reqs.length}</b> requirements traced (${pct}%)</span>`+
     `<span class="pill">${NODES.length} artifacts</span>`+
     `<span class="pill ${errs?'bad':'good'}"><b>${errs}</b> errors</span>`+

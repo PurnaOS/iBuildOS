@@ -12,8 +12,8 @@ import (
 // no type-name literal appears here.
 func completeness(arts []*artifact, g *graph, reg *types.Registry, cfg config.Config, c *model.Collector) {
 	ch := cfg.Chain
-	reqType := reg.RelTarget(ch.ImplementsRel)
-	isRequirement := func(t string) bool { return reqType != "" && reg.Satisfies(t, reqType) }
+	reqTypes := reg.RelTargets(ch.ImplementsRel)
+	isRequirement := func(t string) bool { return reg.SatisfiesAny(t, reqTypes) }
 
 	for _, a := range arts {
 		if a.typ == "" {
@@ -81,10 +81,10 @@ func checkDoneTask(a *artifact, g *graph, reg *types.Registry, cfg config.Config
 	}
 
 	// Traceability: must implement a requirement directly, or via a parent that does.
-	reqType := reg.RelTarget(ch.ImplementsRel)
+	reqTypes := reg.RelTargets(ch.ImplementsRel)
 	implementsReq := func(links []rlink) bool {
 		for _, rl := range links {
-			if rl.exists && reqType != "" && reg.Satisfies(rl.targetType, reqType) {
+			if rl.exists && reg.SatisfiesAny(rl.targetType, reqTypes) {
 				return true
 			}
 		}

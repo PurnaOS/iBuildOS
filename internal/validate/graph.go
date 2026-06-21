@@ -2,6 +2,7 @@ package validate
 
 import (
 	"os"
+	"strings"
 
 	"github.com/PurnaOS/iBuildOS/internal/config"
 	"github.com/PurnaOS/iBuildOS/internal/model"
@@ -97,7 +98,11 @@ func resolveLink(a *artifact, ref okf.LinkRef, spec types.RelSpec, relName strin
 
 	rl := rlink{raw: ref.Raw, key: cfg.LinkKey(ref.Raw), line: ref.Line}
 	diskPath := cfg.ResolveLink(ref.Raw)
-	if _, err := os.Stat(diskPath); err != nil {
+	// Existence is checked case-sensitively (not os.Stat, which case-folds on
+	// macOS/Windows) so a link to /work/Task.md does not resolve to task.md — and
+	// the same bundle yields identical findings on every OS (review #2).
+	rel := strings.TrimPrefix(ref.Raw, "/")
+	if cfg.LinkEscapesRoot(diskPath) || !okf.PathCaseMatches(cfg.RootDir(), rel) {
 		c.Errf(a.path, ref.Line, "link.unresolved",
 			"%s link %q does not resolve to an existing document", relName, ref.Raw)
 		return rl
