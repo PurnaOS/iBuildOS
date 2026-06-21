@@ -16,6 +16,7 @@ import (
 	"github.com/PurnaOS/iBuildOS/internal/model"
 	"github.com/PurnaOS/iBuildOS/internal/report"
 	"github.com/PurnaOS/iBuildOS/internal/scaffold"
+	"github.com/PurnaOS/iBuildOS/internal/serve"
 	"github.com/PurnaOS/iBuildOS/internal/site"
 	"github.com/PurnaOS/iBuildOS/internal/validate"
 )
@@ -31,12 +32,14 @@ Usage:
   iBuild graph [path] [--format json] [--body excerpt|full|none]
                [--node <ref> [--depth N] [--rel a,b]] [--types <dir>]
   iBuild site [path] [--out <file|dir>] [--types <dir>]
+  iBuild serve [path] [--addr host:port] [--types <dir>]
   iBuild version
 
   init      scaffold a new project into an OKF-SDLC bundle (never overwrites)
   validate  check the bundle; deterministic gate (the AI layer never runs here)
   graph     export the knowledge graph as JSON; --node focuses on a neighborhood
   site      render a self-contained, offline HTML traceability + planning UI
+  serve     run iBuild Studio: localhost UI + JSON oracles + AI-free /simulate
 
 Exit codes: 0 = no errors, 1 = validation errors, 2 = usage error.`
 
@@ -55,6 +58,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runGraph(args[1:], stdout, stderr)
 	case "site":
 		return runSite(args[1:], stdout, stderr)
+	case "serve":
+		return runServe(args[1:], stdout, stderr)
 	case "version":
 		fmt.Fprintln(stdout, Version)
 		return 0
@@ -213,6 +218,44 @@ func runSite(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func runServe(args []string, stdout, stderr io.Writer) int {
+	path, flags := splitArgs(args)
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	addr := fs.String("addr", "127.0.0.1:7777", "localhost bind address host:port (loopback only)")
+	typesDir := fs.String("types", "", "type-definitions directory (overrides .ibuildos.yaml)")
+	if err := fs.Parse(flags); err != nil {
+		return 2
+	}
+	if path == "" {
+		path = "."
+	}
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		fmt.Fprintf(stderr, "cannot load .ibuildos.yaml: %v\n", err)
+		return 1
+	}
+	if *typesDir != "" {
+		cfg.TypesDirOverride = *typesDir
+	}
+
+	ln, err := serve.Listen(*addr)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 2
+	}
+	srv := serve.New(path, cfg)
+	fmt.Fprintf(stdout, "iBuild Studio serving %s on http://%s\n", path, ln.Addr())
+	fmt.Fprintf(stdout, "  UI  http://%s/        graph  /graph   validate  /validate\n", ln.Addr())
+	fmt.Fprintf(stdout, "  focus /focus?node=…   config /config   simulate  POST /simulate\n")
+	if err := srv.Serve(ln); err != nil {
+		fmt.Fprintf(stderr, "server stopped: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func runInit(args []string, stdout, stderr io.Writer) int {
 	path, flags := splitArgs(args)
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
@@ -262,7 +305,7 @@ func splitArgs(args []string) (path string, flags []string) {
 		"--format": true, "-format": true, "--types": true, "-types": true,
 		"--body": true, "-body": true, "--node": true, "-node": true,
 		"--depth": true, "-depth": true, "--rel": true, "-rel": true,
-		"--out": true, "-out": true,
+		"--out": true, "-out": true, "--addr": true, "-addr": true,
 	}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
