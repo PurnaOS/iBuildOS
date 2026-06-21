@@ -354,6 +354,27 @@ func (r *Registry) RelTarget(relName string) string {
 	return ""
 }
 
+// DefNames returns every defined type name (concrete and abstract), sorted. The
+// graph export uses it to project the registry as data.
+func (r *Registry) DefNames() []string { return r.sortedDefNames() }
+
+// Ancestors returns name's extends chain, self first then parents (cycle-safe).
+func (r *Registry) Ancestors(name string) []string { return r.ancestors(name) }
+
+// IsAbstract reports whether a defined type is abstract.
+func (r *Registry) IsAbstract(name string) bool {
+	d, ok := r.defs[name]
+	return ok && d.Abstract
+}
+
+// Extends returns the immediate parent type of name, or "".
+func (r *Registry) Extends(name string) string {
+	if d, ok := r.defs[name]; ok {
+		return d.Extends
+	}
+	return ""
+}
+
 func (r *Registry) sortedDefNames() []string {
 	out := make([]string, 0, len(r.defs))
 	for n := range r.defs {

@@ -1,0 +1,11 @@
+# iBuildOS bundle config. The knowledge bundle is rooted at docs/; only files
+# matched by the artifacts globs are strict-validated. Type definitions live in
+# docs/types/ and define the whole SDLC taxonomy as data — edit them to fit your
+# process and `iBuild validate` follows with zero code change.
+root: docs
+types: types
+artifacts:
+  - requirements/**
+  - work/**
+  - tests/**
+code_field: code

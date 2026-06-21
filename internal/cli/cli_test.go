@@ -51,6 +51,35 @@ func TestExitCodes(t *testing.T) {
 	}
 }
 
+func TestGraphCommand(t *testing.T) {
+	root := repoRoot(t)
+	if code, out, _ := run(t, "graph", root); code != 0 || !strings.Contains(out, `"nodes"`) {
+		t.Errorf("graph: exit = %d, has nodes = %v", code, strings.Contains(out, `"nodes"`))
+	}
+	if code, _, _ := run(t, "graph", root, "--format", "xml"); code != 2 {
+		t.Errorf("graph bad format: exit = %d, want 2", code)
+	}
+	if code, _, _ := run(t, "graph", root, "--body", "bogus"); code != 2 {
+		t.Errorf("graph bad body: exit = %d, want 2", code)
+	}
+	// focused query returns just the node and its neighborhood
+	if code, out, _ := run(t, "graph", root, "--node", "/work/task-0001.md", "--depth", "1"); code != 0 ||
+		!strings.Contains(out, "task-0001.md") || strings.Contains(out, "task-0002.md") {
+		t.Errorf("graph --node depth 1: exit = %d, scoped = %v", code, !strings.Contains(out, "task-0002.md"))
+	}
+}
+
+func TestInitCommand(t *testing.T) {
+	dir := t.TempDir()
+	if code, out, _ := run(t, "init", dir); code != 0 || !strings.Contains(out, "created") {
+		t.Errorf("init: exit = %d out = %q", code, out)
+	}
+	// the scaffolded bundle validates clean through the CLI
+	if code, _, _ := run(t, "validate", dir); code != 0 {
+		t.Errorf("validate after init: exit = %d, want 0", code)
+	}
+}
+
 func TestFlagsBeforeOrAfterPath(t *testing.T) {
 	root := repoRoot(t)
 	// flag after path (the form the Action uses)
