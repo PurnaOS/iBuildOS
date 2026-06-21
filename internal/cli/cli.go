@@ -249,6 +249,7 @@ func runServe(args []string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "iBuild Studio serving %s on http://%s\n", path, ln.Addr())
 	fmt.Fprintf(stdout, "  UI  http://%s/        graph  /graph   validate  /validate\n", ln.Addr())
 	fmt.Fprintf(stdout, "  focus /focus?node=…   config /config   simulate  POST /simulate\n")
+	fmt.Fprintf(stdout, "  author POST /author (drives local Claude Code; suggest-only) preflight /author/preflight\n")
 	if err := srv.Serve(ln); err != nil {
 		fmt.Fprintf(stderr, "server stopped: %v\n", err)
 		return 1

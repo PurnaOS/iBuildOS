@@ -17,6 +17,15 @@
 //	GET  /events    text/event-stream a single "ready" event then heartbeats
 //	POST /simulate  application/json the AI-free predictive diff (see simulate.go)
 //
+// One — and ONLY one — endpoint group is AI-touching: the AUTHOR phase, which
+// drives a LOCAL Claude Code process to author OKF artifacts. It is suggest-only
+// and NEVER commits (see author.go):
+//
+//	GET  /author/preflight application/json is `claude` on PATH? + version
+//	POST /author           application/json run a headless /ibuild-* skill, stream to /events
+//	GET  /author/diff      text/plain       the working-tree unified diff (read-only)
+//	POST /author/discard   application/json `git checkout --` named paths (the only git mutation)
+//
 // The server binds 127.0.0.1 only; it is never exposed to 0.0.0.0.
 package serve
 
@@ -38,21 +47,30 @@ import (
 
 // Server is the localhost Studio server for a single bundle. It is orchestration
 // only: every read handler delegates to validate/graphx/site, every write
-// (simulate) delegates to the deterministic shadow-worktree engine.
+// (simulate) delegates to the deterministic shadow-worktree engine. The single
+// AI seam — the AUTHOR phase — is the injectable authorRunner field, which drives
+// a local Claude Code process and writes nothing itself.
 type Server struct {
 	bundleDir string
 	cfg       config.Config
 	bcast     *Broadcaster
 	mux       *http.ServeMux
+
+	// authorRunner is the ONLY non-deterministic, AI-touching seam. It runs a
+	// headless Claude Code invocation in dir, streaming each output line to emit,
+	// and returns the process exit code. Defaults to the real os/exec runner;
+	// tests stub it so the suite never needs a live `claude`.
+	authorRunner authorRunner
 }
 
 // New builds a Server for a bundle. cfg should already carry any --types
 // override the caller resolved.
 func New(bundleDir string, cfg config.Config) *Server {
 	s := &Server{
-		bundleDir: bundleDir,
-		cfg:       cfg,
-		bcast:     NewBroadcaster(),
+		bundleDir:    bundleDir,
+		cfg:          cfg,
+		bcast:        NewBroadcaster(),
+		authorRunner: execAuthorRunner,
 	}
 	s.mux = http.NewServeMux()
 	s.routes()
@@ -124,6 +142,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/simulate", s.handleSimulate)
+	s.mux.HandleFunc("/author/preflight", s.handleAuthorPreflight)
+	s.mux.HandleFunc("/author/diff", s.handleAuthorDiff)
+	s.mux.HandleFunc("/author/discard", s.handleAuthorDiscard)
+	s.mux.HandleFunc("/author", s.handleAuthor)
 }
 
 // Handler exposes the routed mux (for httptest and embedding).
