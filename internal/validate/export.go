@@ -19,9 +19,18 @@ var reservedNodeFields = map[string]bool{"type": true, "status": true, "links": 
 // discarding findings — graph is an export, not a gate. The result is
 // Finalized (sorted, deduped) and therefore byte-stable for a given bundle.
 func Graph(bundleDir string, cfg config.Config, opts graphx.Options) (graphx.Graph, error) {
+	g, _, err := GraphWithRegistry(bundleDir, cfg, opts)
+	return g, err
+}
+
+// GraphWithRegistry is Graph plus the compiled registry, so callers that need
+// field-level classification (the site generator's status enums + code-field
+// detection, which TypeSummary deliberately does not project) can reuse the
+// already-loaded type model instead of reading docs/types/ a second time.
+func GraphWithRegistry(bundleDir string, cfg config.Config, opts graphx.Options) (graphx.Graph, *types.Registry, error) {
 	reg, arts, err := loadArtifacts(bundleDir, cfg, &model.Collector{})
 	if err != nil {
-		return graphx.Graph{}, err
+		return graphx.Graph{}, nil, err
 	}
 	// Resolve every link (existence, target type) via the shared builder. The
 	// throwaway collector swallows the validation findings.
@@ -76,7 +85,7 @@ func Graph(bundleDir string, cfg config.Config, opts graphx.Options) (graphx.Gra
 	if opts.Node != "" {
 		g = graphx.Focus(g, opts.Node, max(opts.Depth, 0), opts.Rels)
 	}
-	return g, nil
+	return g, reg, nil
 }
 
 func typeSummaries(reg *types.Registry) []graphx.TypeSummary {
