@@ -229,20 +229,36 @@ func cfgFor(cfg config.Config, bundleDir string) config.Config {
 // snap is the linter's full output for one tree: findings, the graph, the
 // compiled registry (for capability predicates in the trace score), and the
 // resolved chain config so an alternate type set is honored without type names.
+// loadError captures a non-fatal types/bundle load failure (e.g. a HISTORY
+// commit predating the bundle) as DATA — the snapshot stays usable (empty graph)
+// and callers surface the error rather than panicking. It is "" on the success
+// path the simulator always walks (both worktrees are checkouts of HEAD).
 type snap struct {
-	findings []model.Finding
-	graph    graphx.Graph
-	reg      *types.Registry
-	chain    config.ChainConfig
+	findings  []model.Finding
+	graph     graphx.Graph
+	reg       *types.Registry
+	chain     config.ChainConfig
+	loadError string
 }
 
 func snapshot(cfg config.Config) snap {
+	return snapshotBody(cfg, graphx.Options{Body: "none"})
+}
+
+// snapshotBody is snapshot with an explicit graph Body. The simulator uses
+// Body:"none" (its diff never reads excerpts, and the byte-identical property
+// compares against a Body:"none" export); the HISTORY phase passes Body:"excerpt"
+// so /history/at returns the same excerpt-bearing graph the canvas renders. A
+// non-fatal load failure (a commit predating the bundle) is captured as data.
+func snapshotBody(cfg config.Config, opts graphx.Options) snap {
 	findings := validate.Validate(cfg.BundleDir, cfg)
-	g, reg, err := validate.GraphWithRegistry(cfg.BundleDir, cfg, graphx.Options{Body: "none"})
+	g, reg, err := validate.GraphWithRegistry(cfg.BundleDir, cfg, opts)
+	loadErr := ""
 	if err != nil {
 		g = graphx.Graph{}
+		loadErr = err.Error()
 	}
-	return snap{findings: findings, graph: g, reg: reg, chain: cfg.Chain}
+	return snap{findings: findings, graph: g, reg: reg, chain: cfg.Chain, loadError: loadErr}
 }
 
 func diff(before, after snap) SimulateResult {
@@ -433,26 +449,10 @@ func gitToplevel(dir string) (string, error) {
 }
 
 // addWorktree creates a detached worktree of HEAD in a fresh temp dir and
-// returns it plus a cleanup that removes and prunes it. The temp dir lives
-// OUTSIDE the repo so it never pollutes discovery, and removal is forced so a
-// dirty shadow tree still detaches cleanly.
+// returns it plus a cleanup that removes and prunes it. It delegates to
+// addWorktreeAt (history.go), the arbitrary-commit form, with ref="HEAD". The
+// temp dir lives OUTSIDE the repo so it never pollutes discovery, and removal is
+// forced so a dirty shadow tree still detaches cleanly.
 func addWorktree(top string) (dir string, cleanup func(), err error) {
-	tmp, err := os.MkdirTemp("", "ibuild-sim-")
-	if err != nil {
-		return "", nil, err
-	}
-	wt := filepath.Join(tmp, "wt")
-	cmd := exec.Command("git", "-C", top, "worktree", "add", "--detach", wt, "HEAD")
-	if out, e := cmd.CombinedOutput(); e != nil {
-		os.RemoveAll(tmp)
-		return "", nil, fmt.Errorf("git worktree add: %v: %s", e, strings.TrimSpace(string(out)))
-	}
-	cleanup = func() {
-		rm := exec.Command("git", "-C", top, "worktree", "remove", "--force", wt)
-		rm.Run()
-		prune := exec.Command("git", "-C", top, "worktree", "prune")
-		prune.Run()
-		os.RemoveAll(tmp)
-	}
-	return wt, cleanup, nil
+	return addWorktreeAt(top, "HEAD")
 }

@@ -17,6 +17,15 @@
 //	GET  /events    text/event-stream a single "ready" event then heartbeats
 //	POST /simulate  application/json the AI-free predictive diff (see simulate.go)
 //
+// The HISTORY phase is a deterministic, AI-free time-machine over committed git
+// state — pure projections of the same Validate/Graph core through throwaway
+// worktrees (see history.go):
+//
+//	GET  /history            application/json windowed log of commits touching the bundle
+//	GET  /history/at         application/json Finalized graph + findings AS OF a commit
+//	GET  /history/diff       application/json the /simulate diff shape, between two commits
+//	GET  /history/staleness  application/json suspect links (source committed after target)
+//
 // One — and ONLY one — endpoint group is AI-touching: the AUTHOR phase, which
 // drives a LOCAL Claude Code process to author OKF artifacts. It is suggest-only
 // and NEVER commits (see author.go):
@@ -61,6 +70,11 @@ type Server struct {
 	// and returns the process exit code. Defaults to the real os/exec runner;
 	// tests stub it so the suite never needs a live `claude`.
 	authorRunner authorRunner
+
+	// snaps memoizes HISTORY-phase commit snapshots keyed by tree sha so repeated
+	// /history/at and windowed /history/diff requests skip re-validation. Per
+	// process, unbounded for one session (see history.go).
+	snaps *snapCache
 }
 
 // New builds a Server for a bundle. cfg should already carry any --types
@@ -71,6 +85,7 @@ func New(bundleDir string, cfg config.Config) *Server {
 		cfg:          cfg,
 		bcast:        NewBroadcaster(),
 		authorRunner: execAuthorRunner,
+		snaps:        &snapCache{},
 	}
 	s.mux = http.NewServeMux()
 	s.routes()
@@ -142,6 +157,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/healthz", s.handleHealthz)
 	s.mux.HandleFunc("/events", s.handleEvents)
 	s.mux.HandleFunc("/simulate", s.handleSimulate)
+	s.mux.HandleFunc("/history", s.handleHistory)
+	s.mux.HandleFunc("/history/at", s.handleHistoryAt)
+	s.mux.HandleFunc("/history/diff", s.handleHistoryDiff)
+	s.mux.HandleFunc("/history/staleness", s.handleHistoryStaleness)
 	s.mux.HandleFunc("/author/preflight", s.handleAuthorPreflight)
 	s.mux.HandleFunc("/author/diff", s.handleAuthorDiff)
 	s.mux.HandleFunc("/author/discard", s.handleAuthorDiscard)
