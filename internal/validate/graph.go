@@ -78,14 +78,16 @@ func buildGraph(arts []*artifact, reg *types.Registry, cfg config.Config, c *mod
 			}
 		}
 
-		// Reverse indexes for the chain completeness rules.
+		// Reverse indexes for the chain completeness rules. A self-reference is
+		// not external implementation/verification — a doc that links to itself
+		// must not satisfy its own completeness checks (review MED).
 		for _, rl := range a.links[cfg.Chain.ImplementsRel] {
-			if rl.exists {
+			if rl.exists && rl.key != a.rootRel {
 				g.implementersOf[rl.key] = append(g.implementersOf[rl.key], a)
 			}
 		}
 		for _, rl := range a.links[cfg.Chain.VerifiesRel] {
-			if rl.exists {
+			if rl.exists && rl.key != a.rootRel {
 				g.verifiersOf[rl.key] = append(g.verifiersOf[rl.key], a)
 			}
 		}
@@ -97,12 +99,20 @@ func resolveLink(a *artifact, ref okf.LinkRef, spec types.RelSpec, relName strin
 	reg *types.Registry, cfg config.Config, g *graph, cache map[string]string, c *model.Collector) rlink {
 
 	rl := rlink{raw: ref.Raw, key: cfg.LinkKey(ref.Raw), line: ref.Line}
+	// An empty / whitespace-only target names no document at all.
+	if strings.TrimSpace(ref.Raw) == "" {
+		c.Errf(a.path, ref.Line, "link.unresolved",
+			"%s link %q does not resolve to an existing document", relName, ref.Raw)
+		return rl
+	}
 	diskPath := cfg.ResolveLink(ref.Raw)
-	// Existence is checked case-sensitively (not os.Stat, which case-folds on
-	// macOS/Windows) so a link to /work/Task.md does not resolve to task.md — and
-	// the same bundle yields identical findings on every OS (review #2).
+	// The target must be an existing regular FILE inside the bundle root, resolved
+	// case-sensitively. os.Stat alone case-folds on macOS/Windows (so /work/Task.md
+	// would resolve to task.md, diverging from Linux CI — review #2); a directory
+	// is not a document (MED); and the path may not escape the root (review #5).
 	rel := strings.TrimPrefix(ref.Raw, "/")
-	if cfg.LinkEscapesRoot(diskPath) || !okf.PathCaseMatches(cfg.RootDir(), rel) {
+	info, err := os.Stat(diskPath)
+	if err != nil || info.IsDir() || cfg.LinkEscapesRoot(diskPath) || !okf.PathCaseMatches(cfg.RootDir(), rel) {
 		c.Errf(a.path, ref.Line, "link.unresolved",
 			"%s link %q does not resolve to an existing document", relName, ref.Raw)
 		return rl

@@ -30,21 +30,34 @@ func validateCode(a *artifact, _ *types.Registry, cfg config.Config, c *model.Co
 	}
 }
 
-// scalarListField returns the string items of a list-valued frontmatter field,
-// or nil if the field is absent or not a list.
+// scalarListField returns the string items of a list-valued frontmatter field.
+// A scalar value is tolerated as a single-element list (one glob), so a code
+// field written as `code: pkg/**` is treated the same as `code: [pkg/**]` by
+// both the completeness rules and validateCode. Returns nil when the field is
+// absent, empty, or a non-scalar/non-list value.
 func scalarListField(a *artifact, field string) []string {
 	if a.doc == nil {
 		return nil
 	}
 	_, vn, ok := a.doc.Get(field)
-	if !ok || vn.Kind != yaml.SequenceNode {
+	if !ok {
 		return nil
 	}
-	var out []string
-	for _, item := range vn.Content {
-		if item.Value != "" {
-			out = append(out, item.Value)
+	switch vn.Kind {
+	case yaml.ScalarNode:
+		if vn.Value != "" {
+			return []string{vn.Value}
 		}
+		return nil
+	case yaml.SequenceNode:
+		var out []string
+		for _, item := range vn.Content {
+			if item.Value != "" {
+				out = append(out, item.Value)
+			}
+		}
+		return out
+	default:
+		return nil
 	}
-	return out
 }
