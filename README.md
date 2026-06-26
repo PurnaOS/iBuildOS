@@ -100,6 +100,45 @@ Nodes carry `type`, `status`, a generic `fields` map (no taxonomy hardcoded), an
 body excerpt; edges carry the relationship, declared `target`, actual `targetType`,
 and `resolved` (dangling links still appear). See `docs/develop-with-ibuildos.md`.
 
+### `iBuild site` — offline traceability + planning UI
+
+`iBuild site` renders the same graph + findings as a **single self-contained HTML
+page** — no server, no network, no JS dependencies, no build step. Open the file
+anywhere (or commit it; output is byte-stable for a given bundle). Like the rest of
+the engine it hardcodes no taxonomy: every classification, status column, and
+relationship name is computed in Go from the runtime registry and handed to the page
+as data, so the bundled script never names a type or status. Point `--types`
+elsewhere and the page adapts with zero code changes.
+
+```sh
+./iBuild site .                       # render to stdout
+./iBuild site . --out site/index.html # write a file (creates dirs)
+./iBuild site . --out site/           # a dir/trailing slash → site/index.html
+./iBuild site . --types <dir>         # render an alternative type set
+```
+
+The page has four views plus a per-artifact detail pane (and a top-bar search that
+filters by id, title, type, or status):
+
+- **Requirements** — a traceability table: every requirement, its implementer and
+  test counts, whether the Requirement→Task→Code→Test chain closes around it, and the
+  exact chain gaps (the linter's own `chain.*` findings).
+- **Board** — work grouped into columns by each type's declared `status` order. Each
+  card shows three live chain dots — traces-to-a-requirement, has-code, and
+  has-a-passing-path-test (lit only when the wired `verified_by` test is in a passing
+  status) — with a red dot for any open error.
+- **Planning** — work grouped by the containers it points at (Release, Sprint,
+  Milestone…), discovered generically from non-chain links, so it adapts to your type
+  set; work with no planning link falls under **Unscheduled**.
+- **Graph** — the chain laid out left→right (requirements · work · tests · other);
+  green edges are chain links, grey are other links, and artifacts with open errors
+  are outlined red. Drag to pan, scroll to zoom, click any node for its detail.
+
+It is a **projection, not a gate**: it computes no findings of its own, never runs
+AI or the network, and reflects exactly the graph + findings `iBuild validate`
+produces. `TestSiteRender` asserts the output is well-formed, deterministic, and
+taxonomy-blind (the template source contains no hardcoded type or status literal).
+
 ### The Claude Code plugin
 
 `plugin/` is an installable plugin (`/plugin marketplace add PurnaOS/iBuildOS`) that
