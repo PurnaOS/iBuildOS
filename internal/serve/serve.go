@@ -192,6 +192,12 @@ func Listen(addr string) (net.Listener, error) {
 	if !isLoopback(host) {
 		return nil, fmt.Errorf("refusing to bind %q: iBuild serve is localhost-only (use 127.0.0.1)", host)
 	}
+	// An empty host ("" from a bare ":port") would make net.Listen bind 0.0.0.0
+	// — every interface — so force it to a loopback literal. The localhost-only
+	// guarantee depends on this rewrite, not just the isLoopback guard above.
+	if host == "" {
+		host = "127.0.0.1"
+	}
 	return net.Listen("tcp", net.JoinHostPort(host, port))
 }
 

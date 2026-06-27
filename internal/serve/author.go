@@ -27,6 +27,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -302,9 +303,20 @@ func execAuthorRunner(ctx context.Context, dir string, args []string, emit func(
 // --- GET /author/diff -------------------------------------------------------
 
 // handleAuthorDiff returns the working-tree unified diff of the bundle as
-// text/plain. Read-only: it runs `git diff` and mutates nothing.
+// text/plain. Read-only: it runs `git diff` and mutates nothing. The diff is
+// scoped to the bundle subtree (pathspec) so a bundle served from a repo
+// subdirectory never shows unrelated changes elsewhere in the repo.
 func (s *Server) handleAuthorDiff(w http.ResponseWriter, r *http.Request) {
-	cmd := exec.Command("git", "-C", s.bundleDir, "diff")
+	top, prefix, err := repoRootAndPrefix(s.bundleDir)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "cannot resolve repo: %v", err)
+		return
+	}
+	args := []string{"-C", top, "diff"}
+	if sp := filepath.ToSlash(prefix); sp != "" {
+		args = append(args, "--", sp)
+	}
+	cmd := exec.Command("git", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, "cannot compute diff: %v", err)
@@ -385,10 +397,22 @@ func safeRelPath(p string) error {
 // --- shared helpers ---------------------------------------------------------
 
 // changedBundleFiles returns the bundle-relative paths git sees as changed in the
-// working tree (`git status --porcelain`), sorted. This is read-only.
+// working tree, sorted. It scopes `git status --porcelain` to the bundle subtree
+// (pathspec) and strips the repo-root prefix from each path so the result is
+// bundle-relative — correct whether the bundle is the repo root or a
+// subdirectory, and directly usable by /author/discard (which runs checkout from
+// the bundle dir). This is read-only.
 func (s *Server) changedBundleFiles() ([]string, error) {
-	cmd := exec.Command("git", "-C", s.bundleDir, "status", "--porcelain")
-	out, err := cmd.Output()
+	top, prefix, err := repoRootAndPrefix(s.bundleDir)
+	if err != nil {
+		return nil, err
+	}
+	slashPrefix := filepath.ToSlash(prefix) // "" at repo root, else "sub/dir/"
+	args := []string{"-C", top, "status", "--porcelain"}
+	if slashPrefix != "" {
+		args = append(args, "--", slashPrefix)
+	}
+	out, err := exec.Command("git", args...).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -404,6 +428,8 @@ func (s *Server) changedBundleFiles() ([]string, error) {
 			path = path[i+len(" -> "):]
 		}
 		path = strings.Trim(path, "\"")
+		// Paths are repo-root-relative; make them bundle-relative.
+		path = strings.TrimPrefix(path, slashPrefix)
 		if path != "" {
 			files = append(files, path)
 		}

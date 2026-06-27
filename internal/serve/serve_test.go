@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -474,6 +475,17 @@ func TestListenLoopbackOnly(t *testing.T) {
 	}
 	if _, err := Listen("8.8.8.8:0"); err == nil {
 		t.Error("expected Listen to refuse a public address")
+	}
+	// A bare ":port" (empty host) must NOT bind every interface — it is forced
+	// to a loopback literal so the localhost-only guarantee holds.
+	ln, err = Listen(":0")
+	if err != nil {
+		t.Fatalf("Listen :0: %v", err)
+	}
+	defer ln.Close()
+	host, _, _ := net.SplitHostPort(ln.Addr().String())
+	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
+		t.Errorf("Listen(:0) bound non-loopback %q; expected a loopback address", host)
 	}
 }
 
