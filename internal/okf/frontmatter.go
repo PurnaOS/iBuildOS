@@ -6,10 +6,16 @@ package okf
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+// lineEndingNormalizer collapses CRLF and lone-CR line endings to LF so the
+// frontmatter splitter and YAML decoder see consistent input regardless of how
+// a file was authored (classic Mac "\r", Windows "\r\n", or Unix "\n").
+var lineEndingNormalizer = strings.NewReplacer("\r\n", "\n", "\r", "\n")
 
 // ErrUnterminated is returned when a file opens a `---` fence but never closes it.
 var ErrUnterminated = errors.New("frontmatter: opening --- without a closing fence")
@@ -36,6 +42,7 @@ type LinkRef struct {
 // no closer.
 func Split(raw []byte) (front []byte, body string, frontStartLine int, ok bool, err error) {
 	s := strings.TrimPrefix(string(raw), "\ufeff") // strip UTF-8 BOM if present
+	s = lineEndingNormalizer.Replace(s)            // normalize CRLF / lone CR to LF
 	lines := strings.Split(s, "\n")
 	if len(lines) == 0 || strings.TrimRight(lines[0], " \t\r") != "---" {
 		return nil, s, 0, false, nil
@@ -127,16 +134,88 @@ func (d *Document) Links() map[string][]LinkRef {
 		switch val.Kind {
 		case yaml.SequenceNode:
 			for _, item := range val.Content {
-				refs = append(refs, LinkRef{Raw: item.Value, Line: d.Line(item)})
+				if raw, line, ok := scalarRef(item, d); ok {
+					refs = append(refs, LinkRef{Raw: raw, Line: line})
+				}
+				// Non-scalar items (mappings / nested sequences) are skipped:
+				// appending a bogus empty Raw would be worse than omitting it,
+				// and the now-shorter list trips the relationship's min check.
 			}
 		case yaml.ScalarNode:
 			if val.Value != "" {
 				refs = append(refs, LinkRef{Raw: val.Value, Line: d.Line(val)})
 			}
+		case yaml.AliasNode:
+			if raw, line, ok := scalarRef(val, d); ok {
+				refs = append(refs, LinkRef{Raw: raw, Line: line})
+			}
 		}
 		res[rel] = refs
 	}
 	return res
+}
+
+// scalarRef resolves a sequence item to its scalar string value and source
+// line. Alias nodes are dereferenced to the node they point at; only a scalar
+// (the alias's target or the item itself) yields ok=true. Mappings, nested
+// sequences, and empty scalars are rejected (ok=false) so the caller can skip
+// them rather than emit a bogus link target.
+func scalarRef(item *yaml.Node, d *Document) (raw string, line int, ok bool) {
+	if item == nil {
+		return "", 0, false
+	}
+	if item.Kind == yaml.AliasNode {
+		if item.Alias == nil || item.Alias.Kind != yaml.ScalarNode || item.Alias.Value == "" {
+			return "", 0, false
+		}
+		return item.Alias.Value, d.Line(item), true
+	}
+	if item.Kind == yaml.ScalarNode && item.Value != "" {
+		return item.Value, d.Line(item), true
+	}
+	return "", 0, false
+}
+
+// DuplicateTopLevelKeys reports top-level frontmatter keys that appear more than
+// once, sorted and deduped. YAML decoding keeps only the last value for a
+// duplicated key in lookups, so callers use this to flag the silent shadowing.
+// Tolerant: a nil Map yields nil.
+func (d *Document) DuplicateTopLevelKeys() []string {
+	if d.Map == nil {
+		return nil
+	}
+	seen := map[string]int{}
+	for i := 0; i+1 < len(d.Map.Content); i += 2 {
+		seen[d.Map.Content[i].Value]++
+	}
+	return dupKeys(seen)
+}
+
+// DuplicateLinkRels reports relationship names that appear more than once inside
+// the `links:` mapping, sorted and deduped. Tolerant: a nil Map or a missing /
+// non-mapping `links:` yields nil.
+func (d *Document) DuplicateLinkRels() []string {
+	_, lv, ok := d.Get("links")
+	if !ok || lv == nil || lv.Kind != yaml.MappingNode {
+		return nil
+	}
+	seen := map[string]int{}
+	for i := 0; i+1 < len(lv.Content); i += 2 {
+		seen[lv.Content[i].Value]++
+	}
+	return dupKeys(seen)
+}
+
+// dupKeys returns the keys whose count exceeds one, sorted for determinism.
+func dupKeys(counts map[string]int) []string {
+	var out []string
+	for k, n := range counts {
+		if n > 1 {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func kindName(k yaml.Kind) string {

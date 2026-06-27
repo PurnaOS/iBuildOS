@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"os"
 	"strings"
 
 	"github.com/PurnaOS/iBuildOS/internal/config"
@@ -59,25 +60,33 @@ func GraphWithRegistry(bundleDir string, cfg config.Config, opts graphx.Options)
 
 		// Edges come from the resolved declared links. Undeclared-relationship
 		// links are intentionally not part of the typed graph.
-		var rels map[string]types.RelSpec
-		if res, ok := reg.Resolve(a.typ); ok {
-			rels = res.Rels
-		}
-		for relName, links := range a.links {
-			target := ""
-			if rels != nil {
-				target = rels[relName].Target
+		res, known := reg.Resolve(a.typ)
+		if known && !res.Abstract && a.links != nil {
+			// Known concrete type: buildGraph already resolved its declared links
+			// (existence + target type), so reuse that resolution.
+			for relName, links := range a.links {
+				target := ""
+				if res != nil {
+					target = res.Rels[relName].Target
+				}
+				for _, rl := range links {
+					g.Edges = append(g.Edges, graphx.Edge{
+						From:         a.rootRel,
+						To:           rl.key,
+						Relationship: relName,
+						Target:       target,
+						TargetType:   rl.targetType,
+						Resolved:     rl.exists,
+					})
+				}
 			}
-			for _, rl := range links {
-				g.Edges = append(g.Edges, graphx.Edge{
-					From:         a.rootRel,
-					To:           rl.key,
-					Relationship: relName,
-					Target:       target,
-					TargetType:   rl.targetType,
-					Resolved:     rl.exists,
-				})
-			}
+		} else {
+			// Unknown- or abstract-typed document: buildGraph skips it (tolerance —
+			// no per-link validation findings), so its declared links never make it
+			// into a.links. The graph is an export, not a gate, so derive edges
+			// straight from the raw declared links. There is no RelSpec to consult,
+			// hence an empty Target; Resolved reflects on-disk existence only.
+			exportRawEdges(a, cfg, &g)
 		}
 	}
 
@@ -86,6 +95,37 @@ func GraphWithRegistry(bundleDir string, cfg config.Config, opts graphx.Options)
 		g = graphx.Focus(g, opts.Node, max(opts.Depth, 0), opts.Rels)
 	}
 	return g, reg, nil
+}
+
+// exportRawEdges projects the declared links of an unknown- or abstract-typed
+// document into export edges without any type-driven validation. There is no
+// RelSpec available, so Target is left empty; Resolved is decided purely by
+// on-disk existence (a real, non-directory file), mirroring resolveLink's
+// regular-file guard. This keeps the graph complete (tolerance) while leaving
+// validate's findings behavior untouched.
+func exportRawEdges(a *artifact, cfg config.Config, g *graphx.Graph) {
+	if a.doc == nil {
+		return
+	}
+	raw := a.doc.Links()
+	for _, relName := range sortedKeys(raw) {
+		for _, ref := range raw[relName] {
+			resolved := false
+			if strings.TrimSpace(ref.Raw) != "" {
+				if info, err := os.Stat(cfg.ResolveLink(ref.Raw)); err == nil && !info.IsDir() {
+					resolved = true
+				}
+			}
+			g.Edges = append(g.Edges, graphx.Edge{
+				From:         a.rootRel,
+				To:           cfg.LinkKey(ref.Raw),
+				Relationship: relName,
+				Target:       "",
+				TargetType:   "",
+				Resolved:     resolved,
+			})
+		}
+	}
 }
 
 func typeSummaries(reg *types.Registry) []graphx.TypeSummary {

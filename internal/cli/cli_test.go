@@ -80,6 +80,33 @@ func TestInitCommand(t *testing.T) {
 	}
 }
 
+func TestAgentsCommand(t *testing.T) {
+	root := repoRoot(t)
+	// default: prints AGENTS.md to stdout
+	code, out, _ := run(t, "agents", root)
+	if code != 0 {
+		t.Fatalf("agents: exit = %d, want 0", code)
+	}
+	if !strings.Contains(out, "# AGENTS.md") || !strings.Contains(out, "iBuild validate") {
+		t.Errorf("agents stdout did not contain the contract doc: %q", out[:min(80, len(out))])
+	}
+
+	// --out writes a file and prints "wrote ..."
+	dir := t.TempDir()
+	target := filepath.Join(dir, "AGENTS.md")
+	code, out, _ = run(t, "agents", root, "--out", target)
+	if code != 0 || !strings.Contains(out, "wrote") {
+		t.Fatalf("agents --out: exit = %d out = %q", code, out)
+	}
+	b, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("agents --out did not write file: %v", err)
+	}
+	if !strings.Contains(string(b), "# AGENTS.md") {
+		t.Errorf("written AGENTS.md missing header")
+	}
+}
+
 func TestFlagsBeforeOrAfterPath(t *testing.T) {
 	root := repoRoot(t)
 	// flag after path (the form the Action uses)

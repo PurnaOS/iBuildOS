@@ -90,6 +90,7 @@ type vmNode struct {
 	Implementers []string       `json:"implementers,omitempty"`
 	Verifiers    []string       `json:"verifiers,omitempty"`
 	Traced       bool           `json:"traced"`
+	Coverage     string         `json:"coverage,omitempty"` // requirement nodes only: none | shallow | deep
 }
 
 type viewModel struct {
@@ -97,14 +98,19 @@ type viewModel struct {
 	Chain       vmChain             `json:"chain"`
 	StatusOrder map[string][]string `json:"statusOrder"`
 	Nodes       []vmNode            `json:"nodes"`
+	// Trace Score: % of requirement nodes that are deep-covered (implemented AND
+	// verified). A readout derived from the graph + ChainConfig, never a gate.
+	TraceScore int `json:"traceScore"`
+	ReqTotal   int `json:"reqTotal"`
+	ReqCovered int `json:"reqCovered"`
 }
 
 func build(g graphx.Graph, findings []model.Finding, cfg config.Config, reg *types.Registry) viewModel {
 	ch := cfg.Chain
-	reqType := reg.RelTarget(ch.ImplementsRel)
+	reqTypes := reg.RelTargets(ch.ImplementsRel)
 
 	// Capability predicates — the exact ones internal/validate/complete.go uses.
-	isReq := func(t string) bool { return reqType != "" && reg.Satisfies(t, reqType) }
+	isReq := func(t string) bool { return reg.SatisfiesAny(t, reqTypes) }
 	hasField := func(t, name string) bool {
 		if res, ok := reg.Resolve(t); ok {
 			_, has := res.Fields[name]
@@ -158,7 +164,26 @@ func build(g graphx.Graph, findings []model.Finding, cfg config.Config, reg *typ
 		},
 	}
 
+	reqTotal, deepCount := 0, 0
 	for _, n := range g.Nodes {
+		// Coverage taxonomy for requirement nodes (OpenFastTrace-style, AI-free):
+		// none = nothing implements it; shallow = implemented but no verifying test;
+		// deep = implemented AND verified. Built purely from resolved edges.
+		cov := ""
+		if isReq(n.Type) {
+			switch {
+			case len(implementers[n.Key]) == 0:
+				cov = "none"
+			case len(verifiers[n.Key]) == 0:
+				cov = "shallow"
+			default:
+				cov = "deep"
+			}
+			reqTotal++
+			if cov == "deep" {
+				deepCount++
+			}
+		}
 		vn := vmNode{
 			Key: n.Key, Path: n.Path, Type: n.Type, Status: n.Status,
 			Title:   title(n),
@@ -175,6 +200,7 @@ func build(g graphx.Graph, findings []model.Finding, cfg config.Config, reg *typ
 			Implementers: implementers[n.Key],
 			Verifiers:    verifiers[n.Key],
 			Traced:       !chainErr[n.Path],
+			Coverage:     cov,
 		}
 		vm.Nodes = append(vm.Nodes, vn)
 
@@ -188,6 +214,13 @@ func build(g graphx.Graph, findings []model.Finding, cfg config.Config, reg *typ
 		}
 	}
 	vm.StatusOrder = statusOrder
+	vm.ReqTotal = reqTotal
+	vm.ReqCovered = deepCount
+	if reqTotal > 0 {
+		vm.TraceScore = (deepCount*100 + reqTotal/2) / reqTotal // integer round
+	} else {
+		vm.TraceScore = 100 // nothing to trace
+	}
 	return vm
 }
 
