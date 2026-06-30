@@ -111,6 +111,21 @@ Renders chain health from `iBuild graph`: which requirements are unimplemented o
 untested, which Tasks are orphaned, coverage rolled up by Release/Epic. No sidecar
 state — it's all derived from the artifacts in git.
 
+For a visual, shareable view of the same picture, render the static dashboard:
+
+```bash
+iBuild site . --out site/index.html   # one self-contained HTML file, then open it
+```
+
+`iBuild site` is a deterministic, offline projection of the graph + linter findings —
+no server, no network, no dependencies. It has four views: **Requirements** (the
+traceability table with chain gaps), **Board** (work in columns by each type's status
+order, with live chain dots per card), **Planning** (work grouped by the Release /
+Sprint / Milestone it points at), and **Graph** (the chain laid out left→right). It's
+a projection, not a gate — it reflects exactly what `iBuild validate` finds, and like
+everything here it reads `docs/types/` at runtime, so it adapts to your type set with
+zero code change.
+
 ## 8. Ship
 
 ```

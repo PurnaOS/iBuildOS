@@ -342,16 +342,36 @@ func (r *Registry) ConcreteSubtypes(name string) []string {
 	return out
 }
 
-// RelTarget returns the target type of the first defined relationship with the
-// given name (relationship names are shared across types, e.g. implements ->
-// Requirement). Returns "" if no type declares it.
-func (r *Registry) RelTarget(relName string) string {
+// RelTargets returns every distinct target type declared for a relationship
+// name across all types, sorted. A relationship name is shared across types and
+// may be declared with DIFFERENT targets (e.g. parent -> {Epic, Story, Task};
+// implements could target FunctionalRequirement and NonFunctionalRequirement on
+// different work types). A capability predicate must accept is-or-extends ANY of
+// these, never just one — so this is order-independent. Empty if none declare it.
+func (r *Registry) RelTargets(relName string) []string {
+	set := map[string]bool{}
 	for _, name := range r.sortedDefNames() {
-		if rel, ok := r.defs[name].Rels[relName]; ok {
-			return rel.Target
+		if rel, ok := r.defs[name].Rels[relName]; ok && rel.Target != "" {
+			set[rel.Target] = true
 		}
 	}
-	return ""
+	out := make([]string, 0, len(set))
+	for t := range set {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// SatisfiesAny reports whether docType is-or-extends any of the targets — the
+// order-independent capability predicate built on the runtime type graph.
+func (r *Registry) SatisfiesAny(docType string, targets []string) bool {
+	for _, t := range targets {
+		if r.Satisfies(docType, t) {
+			return true
+		}
+	}
+	return false
 }
 
 // DefNames returns every defined type name (concrete and abstract), sorted. The

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/PurnaOS/iBuildOS/internal/config"
@@ -223,6 +224,126 @@ func TestDoneTaskUntraced(t *testing.T) {
 	findings := Validate(dir, cfg)
 	if !has(findings, "chain.doneTaskUntraced") {
 		t.Errorf("want chain.doneTaskUntraced, got %v", findings)
+	}
+}
+
+// TestMultiFamilyRequirementsAllEnforced guards review finding #1: when several
+// work types declare `implements` with DIFFERENT requirement targets, EVERY
+// requirement family must be enforced — not just whichever type name sorts first.
+// On the buggy single-target RelTarget this fails (only the alphabetically-first
+// implements-target's family was checked; the other was silently exempt).
+func TestMultiFamilyRequirementsAllEnforced(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, c string) {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Custom type set: two requirement families, each implemented by a different
+	// work type. Alpha->ZReq and Zeta->AReq, so RelTargets(implements)={AReq,ZReq}.
+	write("types/areq.md", "---\ntype: ArtifactType\ndefines: AReq\n---\n")
+	write("types/zreq.md", "---\ntype: ArtifactType\ndefines: ZReq\n---\n")
+	write("types/alpha.md", "---\ntype: ArtifactType\ndefines: Alpha\nrelationships:\n  implements:\n    target: ZReq\n---\n")
+	write("types/zeta.md", "---\ntype: ArtifactType\ndefines: Zeta\nrelationships:\n  implements:\n    target: AReq\n---\n")
+	// One orphaned, accepted requirement of each family — both should be flagged.
+	write("docs/requirements/a.md", "---\ntype: AReq\nid: A-1\nstatus: accepted\n---\n")
+	write("docs/requirements/z.md", "---\ntype: ZReq\nid: Z-1\nstatus: accepted\n---\n")
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.TypesDirOverride = filepath.Join(dir, "types")
+	findings := Validate(dir, cfg)
+
+	var aFlagged, zFlagged bool
+	for _, f := range findings {
+		if f.Rule == "chain.reqNotImplemented" {
+			switch f.File {
+			case "docs/requirements/a.md":
+				aFlagged = true
+			case "docs/requirements/z.md":
+				zFlagged = true
+			}
+		}
+	}
+	if !aFlagged || !zFlagged {
+		t.Fatalf("both requirement families must be enforced (a=%v z=%v); findings=%v", aFlagged, zFlagged, findings)
+	}
+}
+
+// TestLinkCannotEscapeRoot guards review #5: a ../-bearing link must not resolve
+// to a file outside the bundle root, even if such a file exists on disk.
+func TestLinkCannotEscapeRoot(t *testing.T) {
+	dir, cfg := bundle(t, map[string]string{
+		// secret.md sits at the bundle root, OUTSIDE docs/.
+		"secret.md":      "---\ntype: FunctionalRequirement\nid: FR-X\ntitle: t\nowner: o\nstatus: accepted\n---\n",
+		"docs/work/t.md": "---\ntype: Task\nid: TASK-1\ntitle: t\nowner: o\nstatus: in_progress\nlinks:\n  implements: [/../secret.md]\n---\n",
+	})
+	findings := Validate(dir, cfg)
+	if !has(findings, "link.unresolved") {
+		t.Errorf("a ../ traversal link must be unresolved, got %v", findings)
+	}
+}
+
+// TestLinkCaseSensitive guards review #2: a wrong-case link must be unresolved on
+// every OS. On case-insensitive macOS/Windows os.Stat would have resolved it (and
+// flipped findings + exit code vs Linux CI); the case-sensitive check prevents that.
+func TestLinkCaseSensitive(t *testing.T) {
+	dir, cfg := bundle(t, map[string]string{
+		"docs/requirements/fr.md": "---\ntype: FunctionalRequirement\nid: FR-1\ntitle: t\nowner: o\nstatus: accepted\n---\n",
+		"docs/work/t.md":          "---\ntype: Task\nid: TASK-1\ntitle: t\nowner: o\nstatus: in_progress\nlinks:\n  implements: [/requirements/FR.md]\n---\n",
+	})
+	findings := Validate(dir, cfg)
+	if !has(findings, "link.unresolved") {
+		t.Errorf("wrong-case link /requirements/FR.md (file is fr.md) must be unresolved on every OS, got %v", findings)
+	}
+}
+
+// TestJSONSchemaErrorStableOneLine guards review #6: a json_schema failure with
+// multiple causes must render as a single, byte-stable line across runs.
+func TestJSONSchemaErrorStableOneLine(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, c string) {
+		full := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(c), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("types/widget.md", "---\ntype: ArtifactType\ndefines: Widget\njson_schema:\n  type: object\n  required:\n    - a\n    - b\n    - c\n---\n")
+	write("docs/work/w.md", "---\ntype: Widget\nid: W-1\n---\n")
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.TypesDirOverride = filepath.Join(dir, "types")
+
+	msgOf := func() string {
+		for _, f := range Validate(dir, cfg) {
+			if f.Rule == "doc.jsonSchema" {
+				return f.Message
+			}
+		}
+		return ""
+	}
+	m1 := msgOf()
+	if m1 == "" {
+		t.Fatal("expected a doc.jsonSchema finding (missing required a/b/c)")
+	}
+	if strings.Contains(m1, "\n") {
+		t.Errorf("json_schema message must be single-line, got %q", m1)
+	}
+	for i := 0; i < 5; i++ {
+		if m := msgOf(); m != m1 {
+			t.Errorf("json_schema message not stable across runs: %q != %q", m, m1)
+		}
 	}
 }
 

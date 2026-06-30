@@ -123,12 +123,24 @@ func (g *Graph) Finalize() {
 // outgoing links and its incoming references). If rels is non-empty, only edges
 // whose relationship is in rels are traversed and kept. The Types summary is
 // preserved unchanged. A focus key with no node yields an empty node/edge set.
+//
+// Only real graph nodes act as traversal hubs: a dangling (non-node) link target
+// is never expanded as a frontier, so it cannot manufacture false neighbors at
+// depth >= 2. The dangling target is still KEPT on a retained edge of an
+// already-reached node, so the unresolved link stays visible — it just doesn't
+// pull its own neighbors in.
 func Focus(g Graph, node string, depth int, rels []string) Graph {
 	relSet := map[string]bool{}
 	for _, r := range rels {
 		relSet[r] = true
 	}
 	keep := func(rel string) bool { return len(relSet) == 0 || relSet[rel] }
+
+	// Real node keys — only these may be added to the frontier and expanded.
+	nodeSet := map[string]bool{}
+	for _, n := range g.Nodes {
+		nodeSet[n.Key] = true
+	}
 
 	// Level-by-level BFS over kept edges, undirected. Expansion is gated on the
 	// previous level's frontier (not the live reach set) so a node added at
@@ -142,10 +154,12 @@ func Focus(g Graph, node string, depth int, rels []string) Graph {
 			if !keep(e.Relationship) {
 				continue
 			}
-			if frontier[e.From] && !reach[e.To] {
+			// Only add a neighbor to the frontier if it is a real node; a
+			// dangling endpoint is not a hub and must not be expanded.
+			if frontier[e.From] && nodeSet[e.To] && !reach[e.To] {
 				next[e.To] = true
 			}
-			if frontier[e.To] && !reach[e.From] {
+			if frontier[e.To] && nodeSet[e.From] && !reach[e.From] {
 				next[e.From] = true
 			}
 		}
@@ -163,7 +177,18 @@ func Focus(g Graph, node string, depth int, rels []string) Graph {
 		}
 	}
 	for _, e := range g.Edges {
-		if keep(e.Relationship) && reach[e.From] && reach[e.To] {
+		// Keep an edge when both endpoints are reached, OR when a reached node
+		// links to a dangling (non-node) target — so the unresolved edge stays
+		// visible without the dangling target ever acting as a traversal hub.
+		if !keep(e.Relationship) {
+			continue
+		}
+		switch {
+		case reach[e.From] && reach[e.To]:
+			out.Edges = append(out.Edges, e)
+		case reach[e.From] && !nodeSet[e.To]:
+			out.Edges = append(out.Edges, e)
+		case reach[e.To] && !nodeSet[e.From]:
 			out.Edges = append(out.Edges, e)
 		}
 	}

@@ -14,7 +14,7 @@ func TestSplit(t *testing.T) {
 		{"basic", "---\na: 1\n---\nbody\n", true, false, "a: 1", "body\n"},
 		{"no frontmatter", "# just markdown\n", false, false, "", "# just markdown\n"},
 		{"empty frontmatter", "---\n---\nbody", true, false, "", "body"},
-		{"crlf", "---\r\na: 1\r\n---\r\nbody\r\n", true, false, "a: 1\r", "body\r\n"},
+		{"crlf", "---\r\na: 1\r\n---\r\nbody\r\n", true, false, "a: 1", "body\n"},
 		{"unterminated", "---\na: 1\nno closing fence\n", false, true, "", ""},
 		{"dashes in body", "---\nt: x\n---\nintro\n\n---\n\nmore\n", true, false, "t: x", "intro\n\n---\n\nmore\n"},
 	}

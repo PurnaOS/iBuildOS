@@ -66,11 +66,27 @@ func Defaults() Config {
 // fileConfig is a pointer-shadow of the on-disk config so that an omitted field
 // keeps its default while a present field (even an empty list) overrides it.
 type fileConfig struct {
-	Root      *string      `yaml:"root"`
-	Types     *string      `yaml:"types"`
-	Artifacts *[]string    `yaml:"artifacts"`
-	CodeField *string      `yaml:"code_field"`
-	Chain     *ChainConfig `yaml:"chain"`
+	Root      *string    `yaml:"root"`
+	Types     *string    `yaml:"types"`
+	Artifacts *[]string  `yaml:"artifacts"`
+	CodeField *string    `yaml:"code_field"`
+	Chain     *fileChain `yaml:"chain"`
+}
+
+// fileChain is the pointer-shadow of ChainConfig: a present `chain:` block
+// overrides ONLY the sub-fields it names, leaving every omitted sub-field at its
+// default. (A plain *ChainConfig would zero out every unspecified field, silently
+// disabling chain enforcement — see review finding #3/#4.)
+type fileChain struct {
+	ImplementsRel     *string   `yaml:"implements_rel"`
+	VerifiesRel       *string   `yaml:"verifies_rel"`
+	VerifiedByRel     *string   `yaml:"verified_by_rel"`
+	ParentRel         *string   `yaml:"parent_rel"`
+	CodeField         *string   `yaml:"code_field"`
+	ActiveReqStatuses *[]string `yaml:"active_req_statuses"`
+	ProposedStatuses  *[]string `yaml:"proposed_statuses"`
+	DoneStatuses      *[]string `yaml:"done_statuses"`
+	PassingStatuses   *[]string `yaml:"passing_statuses"`
 }
 
 // Load reads <bundleDir>/.ibuildos.yaml over the defaults. A missing file is not
@@ -101,10 +117,30 @@ func Load(bundleDir string) (Config, error) {
 	if fc.CodeField != nil {
 		cfg.Chain.CodeField = *fc.CodeField
 	}
-	if fc.Chain != nil {
-		cfg.Chain = *fc.Chain
+	if ch := fc.Chain; ch != nil {
+		setStr(&cfg.Chain.ImplementsRel, ch.ImplementsRel)
+		setStr(&cfg.Chain.VerifiesRel, ch.VerifiesRel)
+		setStr(&cfg.Chain.VerifiedByRel, ch.VerifiedByRel)
+		setStr(&cfg.Chain.ParentRel, ch.ParentRel)
+		setStr(&cfg.Chain.CodeField, ch.CodeField)
+		setList(&cfg.Chain.ActiveReqStatuses, ch.ActiveReqStatuses)
+		setList(&cfg.Chain.ProposedStatuses, ch.ProposedStatuses)
+		setList(&cfg.Chain.DoneStatuses, ch.DoneStatuses)
+		setList(&cfg.Chain.PassingStatuses, ch.PassingStatuses)
 	}
 	return cfg, nil
+}
+
+func setStr(dst *string, src *string) {
+	if src != nil {
+		*dst = *src
+	}
+}
+
+func setList(dst *[]string, src *[]string) {
+	if src != nil {
+		*dst = *src
+	}
 }
 
 // RootDir is the absolute knowledge-bundle root (bundleDir/Root).
@@ -121,6 +157,18 @@ func (c Config) TypesDir() string {
 // ResolveLink maps a root-relative link path (e.g. /work/task-014.md) to disk.
 func (c Config) ResolveLink(p string) string {
 	return filepath.Join(c.RootDir(), strings.TrimPrefix(p, "/"))
+}
+
+// LinkEscapesRoot reports whether a resolved link path has climbed out of the
+// knowledge-bundle root via ../ segments. A link may not reach outside the
+// bundle; an out-of-root target must be treated as unresolved (review #5),
+// otherwise an arbitrary on-disk file could satisfy traceability/cardinality.
+func (c Config) LinkEscapesRoot(resolved string) bool {
+	rel, err := filepath.Rel(c.RootDir(), resolved)
+	if err != nil {
+		return true
+	}
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // LinkKey canonicalizes a link target (as written) to the /root-relative key
