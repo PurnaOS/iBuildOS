@@ -32,6 +32,8 @@ together and map onto Jira and Confluence.
 * [Bug](bug.md) - a defect
 * [Spike](spike.md) - time-boxed research
 * [Test](test.md) - a check that verifies a requirement
+* [Scenario](scenario.md) - a GIVEN/WHEN/THEN acceptance scenario in RFC 2119 language
+* [Change](change.md) - a proposal to evolve the system (the spec-driven change unit)
 
 # Planning (replaces Jira boards & roadmaps)
 

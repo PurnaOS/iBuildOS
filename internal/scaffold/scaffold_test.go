@@ -18,13 +18,15 @@ func countErrors(findings []model.Finding) int {
 	return n
 }
 
-// TestEmbedHasTypeDefs guards the go:embed `all:` gotcha — the type profile and
+// TestEmbedHasTypeDefs guards the go:embed `all:` gotcha — both type profiles and
 // the dotfiles must actually be in the embedded FS.
 func TestEmbedHasTypeDefs(t *testing.T) {
 	for _, p := range []string{
 		"templates/ibuildos.yaml",
-		"templates/docs/types/task.md",
-		"templates/docs/types/functional-requirement.md",
+		"templates/profiles/core/task.md",
+		"templates/profiles/core/requirement.md",
+		"templates/profiles/full/functional-requirement.md",
+		"templates/profiles/full/change.md",
 		"templates/docs/requirements/.gitkeep",
 	} {
 		if _, err := templatesFS.ReadFile(p); err != nil {
@@ -101,7 +103,7 @@ func validateClean(t *testing.T, dir string) []model.Finding {
 }
 
 // TestInitRoundTrip is the headline gate for init: a freshly scaffolded bundle
-// passes validate with zero errors.
+// passes validate with zero errors. The default profile is the lean core.
 func TestInitRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	res, err := Init(dir, Options{})
@@ -114,8 +116,31 @@ func TestInitRoundTrip(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".ibuildos.yaml")); err != nil {
 		t.Errorf(".ibuildos.yaml not written: %v", err)
 	}
+	// core profile present, full-only types absent
+	if _, err := os.Stat(filepath.Join(dir, "docs/types/task.md")); err != nil {
+		t.Errorf("core type task.md not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "docs/types/epic.md")); err == nil {
+		t.Errorf("core profile should not include epic.md")
+	}
 	if n := countErrors(validateClean(t, dir)); n != 0 {
 		t.Fatalf("scaffolded bundle should validate clean, got %d errors", n)
+	}
+}
+
+// TestInitFullProfile: --full scaffolds the complete taxonomy and still validates.
+func TestInitFullProfile(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := Init(dir, Options{Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"epic.md", "functional-requirement.md", "change.md", "scenario.md"} {
+		if _, err := os.Stat(filepath.Join(dir, "docs/types", f)); err != nil {
+			t.Errorf("full profile missing %s: %v", f, err)
+		}
+	}
+	if n := countErrors(validateClean(t, dir)); n != 0 {
+		t.Fatalf("--full bundle should validate clean, got %d errors", n)
 	}
 }
 
@@ -124,7 +149,7 @@ func TestInitExampleRoundTrip(t *testing.T) {
 	if _, err := Init(dir, Options{Example: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, exampleFRPath)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, exampleReqPath)); err != nil {
 		t.Errorf("example requirement not written: %v", err)
 	}
 	if n := countErrors(validateClean(t, dir)); n != 0 {

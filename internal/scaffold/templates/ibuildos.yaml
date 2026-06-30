@@ -8,4 +8,6 @@ artifacts:
   - requirements/**
   - work/**
   - tests/**
+  - changes/**
+  - scenarios/**
 code_field: code

@@ -14,11 +14,13 @@ import (
 	"github.com/PurnaOS/iBuildOS/internal/config"
 	"github.com/PurnaOS/iBuildOS/internal/contract"
 	"github.com/PurnaOS/iBuildOS/internal/graphx"
+	"github.com/PurnaOS/iBuildOS/internal/instructions"
 	"github.com/PurnaOS/iBuildOS/internal/model"
 	"github.com/PurnaOS/iBuildOS/internal/report"
 	"github.com/PurnaOS/iBuildOS/internal/scaffold"
 	"github.com/PurnaOS/iBuildOS/internal/serve"
 	"github.com/PurnaOS/iBuildOS/internal/site"
+	"github.com/PurnaOS/iBuildOS/internal/types"
 	"github.com/PurnaOS/iBuildOS/internal/validate"
 )
 
@@ -28,21 +30,23 @@ var Version = "dev"
 const usage = `iBuild — OKF-SDLC traceability linter
 
 Usage:
-  iBuild init [path] [--example]
+  iBuild init [path] [--example] [--full]
   iBuild validate [path] [--format text|json] [--types <dir>]
   iBuild graph [path] [--format json] [--body excerpt|full|none]
                [--node <ref> [--depth N] [--rel a,b]] [--types <dir>]
   iBuild site [path] [--out <file|dir>] [--types <dir>]
+  iBuild instructions [Type] [--format text|json] [--types <dir>]
   iBuild serve [path] [--addr host:port] [--types <dir>]
   iBuild agents [path] [--out <file>] [--types <dir>]
   iBuild version
 
-  init      scaffold a new project into an OKF-SDLC bundle (never overwrites)
-  validate  check the bundle; deterministic gate (the AI layer never runs here)
-  graph     export the knowledge graph as JSON; --node focuses on a neighborhood
-  site      render a self-contained, offline HTML traceability + planning UI
-  serve     run iBuild Studio: localhost UI + JSON oracles + AI-free /simulate
-  agents    emit AGENTS.md: the contract surface for other coding agents
+  init          scaffold a new project (lean core profile; --full for the whole taxonomy)
+  validate      check the bundle; deterministic gate (the AI layer never runs here)
+  graph         export the knowledge graph as JSON; --node focuses on a neighborhood
+  site          render a self-contained, offline HTML traceability + planning UI
+  instructions  print an authoring template for a type (from docs/types/); no arg lists all
+  serve         run iBuild Studio: localhost UI + JSON oracles + AI-free /simulate
+  agents        emit AGENTS.md: the contract surface for other coding agents
 
 Exit codes: 0 = no errors, 1 = validation errors, 2 = usage error.`
 
@@ -61,6 +65,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runGraph(args[1:], stdout, stderr)
 	case "site":
 		return runSite(args[1:], stdout, stderr)
+	case "instructions":
+		return runInstructions(args[1:], stdout, stderr)
 	case "serve":
 		return runServe(args[1:], stdout, stderr)
 	case "agents":
@@ -314,13 +320,14 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	example := fs.Bool("example", false, "also scaffold a tiny example requirement")
+	full := fs.Bool("full", false, "scaffold the full SDLC taxonomy instead of the lean core profile")
 	if err := fs.Parse(flags); err != nil {
 		return 2
 	}
 	if path == "" {
 		path = "."
 	}
-	res, err := scaffold.Init(path, scaffold.Options{Example: *example})
+	res, err := scaffold.Init(path, scaffold.Options{Example: *example, Full: *full})
 	if err != nil {
 		fmt.Fprintf(stderr, "init failed: %v\n", err)
 		return 1
@@ -334,6 +341,69 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	}
 	if len(res.Created) > 0 {
 		fmt.Fprintf(stdout, "\nNext: run `iBuild validate %s` (exits 0), then use /ibuild-discover to start.\n", path)
+	}
+	return 0
+}
+
+// runInstructions prints an authoring template for a type, derived from the
+// registry — a read-only projection, like graph. The type is a positional
+// argument (never a code literal); no arg lists all defined types.
+func runInstructions(args []string, stdout, stderr io.Writer) int {
+	format, typesDir := "text", ""
+	var positionals []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--format" || a == "-format":
+			if i+1 < len(args) {
+				format = args[i+1]
+				i++
+			}
+		case strings.HasPrefix(a, "--format="):
+			format = strings.TrimPrefix(a, "--format=")
+		case a == "--types" || a == "-types":
+			if i+1 < len(args) {
+				typesDir = args[i+1]
+				i++
+			}
+		case strings.HasPrefix(a, "--types="):
+			typesDir = strings.TrimPrefix(a, "--types=")
+		case strings.HasPrefix(a, "-"):
+			fmt.Fprintf(stderr, "unknown flag %q\n", a)
+			return 2
+		default:
+			positionals = append(positionals, a)
+		}
+	}
+	if len(positionals) > 1 {
+		fmt.Fprintf(stderr, "instructions takes at most one type name\n")
+		return 2
+	}
+	if format != "text" && format != "json" {
+		fmt.Fprintf(stderr, "invalid --format %q (want text or json)\n", format)
+		return 2
+	}
+	var typeName string
+	if len(positionals) == 1 {
+		typeName = positionals[0]
+	}
+
+	cfg, err := config.Load(".")
+	if err != nil {
+		fmt.Fprintf(stderr, "cannot load .ibuildos.yaml: %v\n", err)
+		return 1
+	}
+	if typesDir != "" {
+		cfg.TypesDirOverride = typesDir
+	}
+	reg, err := types.Load(cfg.TypesDir(), cfg.BundleDir, &model.Collector{})
+	if err != nil {
+		fmt.Fprintf(stderr, "cannot load types from %s: %v\n", cfg.TypesDir(), err)
+		return 1
+	}
+	if err := instructions.Write(stdout, reg, typeName, format); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
 	}
 	return 0
 }

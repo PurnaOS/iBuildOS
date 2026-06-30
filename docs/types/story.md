@@ -19,7 +19,8 @@ fields:
   so_that:
     doc: The benefit — the "so that …" clause.
   acceptance_criteria:
-    doc: List of acceptance criteria. Expand them under an "# Acceptance Criteria" body section.
+    type: list
+    doc: Acceptance criteria, one per item — ideally GIVEN/WHEN/THEN in RFC 2119 language (SHALL/MUST/SHOULD/MAY). For a criterion that deserves a test link, author a Scenario instead.
 relationships:
   parent:
     target: Epic
