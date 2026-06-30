@@ -16,6 +16,8 @@ import (
 type Options struct {
 	// Example also writes a tiny, validate-clean example requirement.
 	Example bool
+	// Full selects the full SDLC taxonomy instead of the lean core profile.
+	Full bool
 }
 
 // Result reports what a scaffold run did. Paths are bundle-relative, slash-separated.
@@ -27,12 +29,29 @@ type Result struct {
 
 const embedRoot = "templates"
 
-// exampleFR is a minimal, internally-consistent requirement: a `proposed` FR with
-// only the inherited required fields. It yields zero errors (a proposed,
-// unimplemented requirement is a warning, never an error), so the init→validate
-// round trip stays green with or without --example.
+// profilesPrefix holds the swappable type profiles (core/ and full/). The main
+// copy skips it; the chosen profile is copied into docs/types/ separately.
+const profilesPrefix = embedRoot + "/profiles/"
+
+// example* are minimal, internally-consistent requirements with only the inherited
+// required fields, at `proposed` (a proposed, unimplemented requirement is a
+// warning, never an error), so the init→validate round trip stays green with
+// --example. The type must match the scaffolded profile.
+const exampleReqPath = "docs/requirements/req-0001.md"
+const exampleReqCore = `---
+type: Requirement
+id: REQ-0001
+title: Example requirement — replace or delete me
+owner: you
+status: proposed
+---
+
+Scaffolded by ` + "`iBuild init --example`" + `. Replace it with your real
+requirements, then delete this file.
+`
+
 const exampleFRPath = "docs/requirements/fr-0001.md"
-const exampleFR = `---
+const exampleFRFull = `---
 type: FunctionalRequirement
 id: FR-0001
 title: Example requirement — replace or delete me
@@ -40,7 +59,7 @@ owner: you
 status: proposed
 ---
 
-Scaffolded by ` + "`iBuild init --example`" + `. Use /ibuild-discover and
+Scaffolded by ` + "`iBuild init --example --full`" + `. Use /ibuild-discover and
 /ibuild-plan to build out the real chain, then delete this file.
 `
 
@@ -52,11 +71,12 @@ func Init(target string, opts Options) (Result, error) {
 		res.AlreadyInit = true
 	}
 
+	// Copy the shared bundle skeleton, skipping the swappable type profiles.
 	err := fs.WalkDir(templatesFS, embedRoot, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if d.IsDir() {
+		if d.IsDir() || strings.HasPrefix(p, profilesPrefix) {
 			return nil
 		}
 		rel := strings.TrimPrefix(p, embedRoot+"/")
@@ -69,8 +89,31 @@ func Init(target string, opts Options) (Result, error) {
 		return res, err
 	}
 
+	// Copy the chosen type profile (core by default) into docs/types/.
+	profile := "core"
+	if opts.Full {
+		profile = "full"
+	}
+	entries, err := fs.ReadDir(templatesFS, profilesPrefix+profile)
+	if err != nil {
+		return res, err
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		src := profilesPrefix + profile + "/" + e.Name()
+		if err := writeFile(target, "docs/types/"+e.Name(), mustRead(src), &res); err != nil {
+			return res, err
+		}
+	}
+
 	if opts.Example {
-		if err := writeFile(target, exampleFRPath, []byte(exampleFR), &res); err != nil {
+		path, body := exampleReqPath, exampleReqCore
+		if opts.Full {
+			path, body = exampleFRPath, exampleFRFull
+		}
+		if err := writeFile(target, path, []byte(body), &res); err != nil {
 			return res, err
 		}
 	}

@@ -1,7 +1,7 @@
 {
   "name": "ibuildos",
   "version": "0.1.0",
-  "description": "Git-native OKF-SDLC layer: scaffold the bundle, author traceable artifacts (requirement/epic/story/task/test), plan & break down work, and run a traceability auditor + AI contradiction-checker. All AI is suggest-only; the iBuild linter stays the source of truth.",
+  "description": "Git-native OKF-SDLC layer: scaffold the bundle, author traceable artifacts (requirement/epic/story/task/test), plan & break down work, evolve a system with the spec-driven change overlay (explore→propose→apply→archive), and run a traceability auditor + AI contradiction-checker. All AI is suggest-only; the iBuild linter stays the source of truth.",
   "author": {
     "name": "PurnaOS",
     "url": "https://github.com/PurnaOS/iBuildOS"

@@ -30,6 +30,10 @@ tracker, no hidden state — `iBuild graph` is the whole knowledge graph.
      orphan tasks (no `parent`, no `implements`).
    - **Coverage**: roll work up by `parent` to Epic/Story, and by `planned_for`
      to Release, if those links exist.
+   - **Changes** (if the profile has a `Change` type): for each Change, its
+     `status` and progress — count `delivers` Tasks that are `done` over the
+     total, e.g. `CHANGE-orders-freshness-sla: active — 2/4 tasks done`. This is
+     a pure derivation from the graph; it computes no findings and gates nothing.
    - **Dangling links**: edges with `resolved: false`.
 5. **Present** a short, scannable dashboard. Point the user at `/ibuild-audit` to
    fix structural gaps or `/ibuild-contradict` for semantic ones.

@@ -25,6 +25,13 @@ iBuild init .            # scaffolds .ibuildos.yaml, docs/types/, the bundle dir
 iBuild validate .        # exits 0 — an empty bundle is a valid bundle
 ```
 
+By default `init` writes the **lean core profile**: just the
+Requirement → Task → Code → Test chain plus Story and Bug (7 types). When you need
+the full taxonomy — Vision/PRD, the Business/Functional/NonFunctional split,
+Initiative/Epic, planning (Release/Sprint/Milestone/Roadmap), Spike/Persona, and the
+Change/Scenario overlay — run `iBuild init --full`. The profile is pure data: you
+can also start lean and add any type later by dropping its `*.md` into `docs/types/`.
+
 `iBuild init` vendors the skills into `.claude/`, so a clone of this repo is
 self-contained — every `/ibuild-*` command works with **no install**. (You can
 also install them machine-wide as a plugin: `/plugin marketplace add
@@ -111,6 +118,36 @@ state — it's all derived from the artifacts in git.
 ```
 The gate: `iBuild validate .` must be clean and the chain complete before the work
 becomes a PR.
+
+## 9. Evolve — the change overlay (brownfield, full profile)
+
+The `Change` and `Scenario` types live in the **full profile** (`iBuild init --full`,
+or add `change.md`/`scenario.md` to `docs/types/`). Greenfield runs
+discover→plan→implement. When you're *changing* a system that already exists,
+capture the evolution as a **Change** and run it through its own lifecycle:
+
+```
+/ibuild-explore      # read-only: what would this touch? (ADD / MODIFY / REMOVE)
+/ibuild-propose      # author the Change (why/what/scope) + the requirements it affects
+/ibuild-apply        # activate, break down, implement, settle the delta
+/ibuild-archive      # gate clean + work done → status: archived
+```
+
+A Change is a graph node, not a folder — git stays the source of truth, and the
+Change is the reviewable, linkable record of intent a raw diff isn't. The delta
+maps onto mechanics you already have: **ADDED** = a new `proposed` requirement,
+**MODIFIED** = edit in place (git is the diff), **REMOVED** = `status: deprecated`.
+A Change draws no chain-completeness findings — it's capture, not a new gate.
+
+For precise acceptance criteria, author a **Scenario**: one GIVEN/WHEN/THEN
+condition in RFC 2119 language (SHALL/MUST/SHOULD/MAY). Because a Scenario
+`verifies` a Requirement, it counts toward chain completeness exactly like a Test.
+For quick inline definition-of-done, use the `acceptance_criteria` list on a Story.
+
+```bash
+iBuild instructions Change      # the exact authoring template for any type,
+iBuild instructions             # …or list every type. Derived from docs/types/.
+```
 
 ## Fast knowledge — the graph is your "code graph"
 

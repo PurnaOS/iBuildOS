@@ -66,7 +66,9 @@ requirement (directly or via its parent Story).
 `internal/types` (Layer 1 registry + dialect) · `internal/validate` (Layer 2a
 per-doc, 2b graph + completeness; `export.go` = the `graph` projection) ·
 `internal/graphx` (public graph model + JSON + focus) · `internal/scaffold`
-(`init`, embeds the base profile + bundle skeleton) · `internal/report` (text +
+(`init`, embeds the base profile + bundle skeleton) · `internal/instructions`
+(`instructions` — a read-only authoring-template projection of the registry, like
+`graph`; the type name is an argument, never a literal) · `internal/report` (text +
 stable JSON) · `internal/config` · `internal/model` (Finding). Build with
 `CGO_ENABLED=0`.
 
@@ -88,3 +90,16 @@ marketplace install. `plugin/` is canonical: edit it, then
 is the drift gate. The AI layer orchestrates the binary, is suggest-only, never
 auto-commits, and never runs inside the linter. New gates: `TestInitRoundTrip`,
 `TestGraphDogfood`, `TestClaudeMirror`.
+
+**Change overlay (spec-driven evolution).** The base profile adds two data-driven
+types — `Change` (a proposal to evolve the system; modeled on `Bug`) and `Scenario`
+(a GIVEN/WHEN/THEN acceptance criterion in RFC 2119 language that `verifies` a
+Requirement, so it counts toward verification for free). Both are pure
+`docs/types/*.md`: zero engine code, and they draw **no** chain findings by design
+(neither is a requirement nor task-like), so they add intent-capture without a new
+gate. The `Change` lifecycle (`proposed→active→done→archived`) is just a `status`
+enum driven by four suggest-only skills (`/ibuild-explore`, `/ibuild-propose`,
+`/ibuild-apply`, `/ibuild-archive`). Deltas map onto existing mechanics — ADDED = a
+new `proposed` requirement, MODIFIED = edit in place (git is the diff), REMOVED =
+`status: deprecated` — so there is **no** change-as-folder, no delta dialect, and no
+merge engine: git stays the source of truth.

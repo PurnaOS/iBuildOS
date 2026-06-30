@@ -29,6 +29,7 @@ WorkItem (abstract: id, title, owner, status)
 │   ├── FunctionalRequirement
 │   └── NonFunctionalRequirement
 ├── Subtask
+├── Change · Scenario
 ├── Vision · PRD · Persona
 └── Release · Sprint · Milestone · Roadmap
 ```

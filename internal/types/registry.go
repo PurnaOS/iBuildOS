@@ -367,6 +367,14 @@ func (r *Registry) IsAbstract(name string) bool {
 	return ok && d.Abstract
 }
 
+// Description returns the one-line description of a defined type, or "".
+func (r *Registry) Description(name string) string {
+	if d, ok := r.defs[name]; ok {
+		return d.Description
+	}
+	return ""
+}
+
 // Extends returns the immediate parent type of name, or "".
 func (r *Registry) Extends(name string) string {
 	if d, ok := r.defs[name]; ok {

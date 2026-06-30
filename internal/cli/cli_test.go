@@ -80,6 +80,34 @@ func TestInitCommand(t *testing.T) {
 	}
 }
 
+func TestInstructionsCommand(t *testing.T) {
+	root := repoRoot(t)
+	typesDir := filepath.Join(root, "docs", "types")
+
+	// single type: emits a template with the type and its links
+	if code, out, _ := run(t, "instructions", "Change", "--types", typesDir); code != 0 ||
+		!strings.Contains(out, "type: Change") || !strings.Contains(out, "affects") {
+		t.Errorf("instructions Change: exit = %d, has template = %v", code, strings.Contains(out, "type: Change"))
+	}
+	// json projection
+	if code, out, _ := run(t, "instructions", "Scenario", "--types", typesDir, "--format", "json"); code != 0 ||
+		!strings.Contains(out, `"name": "Scenario"`) {
+		t.Errorf("instructions json: exit = %d, has name = %v", code, strings.Contains(out, `"name": "Scenario"`))
+	}
+	// no arg lists all defined types
+	if code, out, _ := run(t, "instructions", "--types", typesDir); code != 0 || !strings.Contains(out, "Change") {
+		t.Errorf("instructions list: exit = %d, lists Change = %v", code, strings.Contains(out, "Change"))
+	}
+	// unknown type is an error
+	if code, _, _ := run(t, "instructions", "Nope", "--types", typesDir); code != 1 {
+		t.Errorf("instructions unknown: exit = %d, want 1", code)
+	}
+	// bad format is a usage error
+	if code, _, _ := run(t, "instructions", "Change", "--types", typesDir, "--format", "xml"); code != 2 {
+		t.Errorf("instructions bad format: exit = %d, want 2", code)
+	}
+}
+
 func TestFlagsBeforeOrAfterPath(t *testing.T) {
 	root := repoRoot(t)
 	// flag after path (the form the Action uses)
