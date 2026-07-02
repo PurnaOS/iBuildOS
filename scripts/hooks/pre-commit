@@ -1,0 +1,11 @@
+#!/bin/sh
+# iBuildOS pre-commit gate (VL-009): validate only the changed artifacts so the
+# hook stays fast. Enable with:  git config core.hooksPath scripts/hooks
+root="$(git rev-parse --show-toplevel)" || exit 0
+if command -v iBuild >/dev/null 2>&1; then
+  iBuild validate "$root" --changed
+elif command -v bun >/dev/null 2>&1; then
+  bun run "$root/src/cli.ts" validate "$root" --changed
+else
+  echo "iBuild: neither the iBuild binary nor bun is on PATH; skipping validation" >&2
+fi

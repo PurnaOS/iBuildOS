@@ -1,6 +1,7 @@
-# iBuildOS bundle config. The knowledge bundle is rooted at docs/; only files
-# matched by the artifacts globs are strict-validated (README, CLAUDE.md,
-# APPROACH.md, docs/types/, and source code stay out of scope).
+# iBuildOS bundle config — this repo dogfoods iBuildOS.
+profile:
+  name: ibuildos-base
+  version: 0.5.0
 root: docs
 types: types
 artifacts:
@@ -9,4 +10,17 @@ artifacts:
   - tests/**
   - changes/**
   - scenarios/**
+  - decisions/**
+  - identity/**
+  - architecture/**
+  - runbooks/**
+  - coordination/**
 code_field: code
+# External tools iBuild orchestrates (it reinvents none of them).
+tooling:
+  test: bun test
+  lint:
+    - bun run typecheck
+    - bun run check:literals
+  source:
+    - src/**

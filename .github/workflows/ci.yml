@@ -1,0 +1,54 @@
+name: ci
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # ubuntu × macos is the byte-identity guard: if case-folding, sort order, or
+    # JSON key ordering regress, the two OSes produce different output and fail.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run check:literals
+      # drift gates: generated embed + .claude mirror must be committed up-to-date
+      - run: bun run gen:embedded && git diff --exit-code src/core/scaffold/embedded.ts
+      - run: bun run sync:claude && git diff --exit-code templates/.claude
+      - run: bun test
+      - run: bun run build
+      - run: ./dist/iBuild version
+      # VL-008: validate the bundle and annotate findings on the PR.
+      - name: Validate bundle
+        id: validate
+        run: |
+          set +e
+          ./dist/iBuild validate . --format json > findings.json
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          cat findings.json
+      - name: Annotate findings
+        if: always()
+        run: |
+          command -v jq >/dev/null || sudo apt-get install -y jq || true
+          jq -r '.findings[] | [.severity,.file,((.line//0)|tostring),.rule,.message] | @tsv' findings.json |
+          while IFS="$(printf '\t')" read -r sev file line rule msg; do
+            cmd=warning; [ "$sev" = error ] && cmd=error
+            if [ "$line" -gt 0 ] 2>/dev/null; then
+              echo "::${cmd} file=${file},line=${line}::[${rule}] ${msg}"
+            else
+              echo "::${cmd} file=${file}::[${rule}] ${msg}"
+            fi
+          done
+      - name: Fail on errors
+        if: always()
+        run: '[ "${{ steps.validate.outputs.exit }}" = "0" ] || exit 1'

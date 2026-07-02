@@ -1,105 +1,67 @@
-# CLAUDE.md — durable rules for iBuildOS
+# CLAUDE.md — durable rules for iBuildOS (TypeScript/Bun)
 
-iBuildOS is a Git-native SDLC layer on **OKF** (markdown + YAML frontmatter). The
-Phase 1 deliverable is `iBuild`, a deterministic traceability linter for the
-**Requirement → Task → Code → Test** chain. These rules are load-bearing — keep
-them true.
+iBuildOS is a git-native SDLC layer on **OKF** (markdown + YAML frontmatter).
+`iBuild` is a deterministic traceability linter + toolchain for the
+**Requirement → Task → Code → Test** chain. TypeScript, compiled to a single
+self-contained executable with **Bun**. These rules are load-bearing.
 
 ## Non-negotiables
 
-1. **Generic, data-driven validator.** The engine hardcodes *no* taxonomy. The
-   only literal type name in the code is the string `"ArtifactType"` (in
-   `internal/types`). Every other type is loaded from `docs/types/*.md` at
-   runtime. Pointing `--types` at a different directory must change enforcement
-   with **zero code changes**. Never write `if type == "Task"`. Polymorphic
-   target checks go through `Registry.Satisfies` (built from the runtime
-   `extends` graph), never name comparisons.
+1. **Generic, data-driven.** The engine hardcodes *no* taxonomy. The only literal
+   type name in `src/` is `"ArtifactType"` (in `src/core/types/registry.ts`).
+   Every other type loads from `docs/types/*.md` at runtime. Polymorphic checks go
+   through `Registry.satisfies` (is-or-extends over the runtime `extends` graph),
+   never name comparison. `scripts/check-literals.ts` fails CI on any taxonomy
+   literal outside `registry.ts` (denylist seeded from the profile's `defines:`;
+   generated `src/core/scaffold/embedded.ts` is excluded — it is template data).
+2. **OKF tolerance.** Unknown `type` → `doc.unknownType` warning, never reject the
+   bundle; missing optional fields and broken links are surfaced, never fatal.
+3. **Deterministic only.** No AI/network in the linter. All output sorted + deduped
+   (`model.finalize`); never iterate a map/object for output. JS `JSON.stringify`
+   does NOT sort keys — `graphx/encode.ts` does. CI runs **ubuntu × macos** as the
+   byte-identity guard.
+4. **Single coupling locus.** All chain coupling lives in `config.ChainConfig`
+   (relationship names, code field, status vocabularies). Completeness keys off
+   **capability predicates** (`reg.satisfiesAny(t, reg.relTargets(implementsRel))`),
+   not type names.
 
-2. **OKF tolerance.** Don't fork or extend the file format. Consumers must
-   tolerate unknown types (warning, never strict-validated), missing optional
-   fields, and broken links — never reject the whole bundle. Unknown `type` →
-   `doc.unknownType` warning. A reserved/non-`ArtifactType` file in `docs/types/`
-   (e.g. `overview.md`, `index.md`) is skipped silently.
+## Layout (`src/core/<module>` mirrors the proven Go boundaries)
 
-3. **Deterministic only.** No AI, no network calls in the linter. All output is
-   sorted + deduped (`model.Finalize`); never range a map for output.
+`okf` (frontmatter via `yaml` CST + LineCounter; case-exact glob) · `types`
+(registry + dialect: required/one_of/pattern/type/extends/abstract/json_schema) ·
+`config` (.ibuildos.yaml + ChainConfig + tooling + profile) · `model` (Finding) ·
+`validate` (document 2a, graph 2b, code, complete, docslint, baseline, export) ·
+`graphx` (graph + focus + encode + rtm + gaps + impact + graphml) ·
+`report` (text/json + comms) · `instructions` · `contract` (AGENTS.md) ·
+`scaffold` (init + generated `embedded.ts`) · `metrics` (status, mine) ·
+`tooling` (orchestrate external test/lint/staleness) · `site` (static HTML portal).
+CLI: `src/cli.ts`. AI layer: canonical `plugin/` mirrored to `templates/.claude`.
 
-## The dialect (defined by `docs/types/artifact-type.md`)
+## Commands
 
-- **Field spec:** `required`, `one_of` (enum), `pattern`, `type`
-  (`string`|`number`|`date`|`bool`|`list`), `doc`.
-- **Pattern tokens:** `<number>`→`[0-9]+`, `<slug>`→`[a-z0-9]+(?:-[a-z0-9]+)*`,
-  `<date>`→`\d{4}-\d{2}-\d{2}`, or `regex:` for raw. Compiled to anchored
-  full-match (`\A(?:…)\z`); literal runs are regexp-escaped.
-- **Relationship spec:** `target` (must be a defined type), `min` (default 0),
-  `max` (optional, unbounded if absent), `doc`.
-- **`json_schema:` escape hatch** validates a document's frontmatter *in
-  addition* to the dialect. Prefer it over growing the dialect.
-- `type: list` (the Phase-1 addition, used by `Task.code`) is a sequence of
-  scalars; enum/pattern do not apply to lists.
+`iBuild validate` (gate; `--changed`/`--base`/`--scope`/`--baseline`/`--report-only`) ·
+`baseline` · `graph` (json/graphml, `--node`) · `matrix` (RTM) · `impact` · `gaps` ·
+`status` · `mine` · `report` · `check` (unified) · `test` · `site` · `instructions` ·
+`agents` · `init` (`--full`/`--example`).
 
-## Chain semantics (the one sanctioned cross-artifact ruleset)
+## The gate (run on every change)
 
-All chain coupling lives in `config.ChainConfig` — relationship names
-(`implements`, `verifies`, `verified_by`, `parent`), the `code` field name, and
-the status vocabularies (the one unavoidable value coupling). Completeness rules
-key off **capability predicates** derived from the type graph (e.g. "is a
-requirement" = is-or-extends the `target` of the `implements` relationship), not
-type names. An alternate type set that renames these simply yields no chain
-findings while per-document and per-link validation still apply universally.
+`bun test` (dogfood `validate .`→0 errors, broken-fixture exits 1 with exactly
+`[chain.doneTaskTestNotPassing, code.noMatch, link.wrongTarget]`, init round-trip,
+graph/site determinism, `.claude` mirror + `embedded.ts` drift, OKF conformance) ·
+`bun run typecheck` · `bun run check:literals` · `bun run build`. A `Task` may be
+`status: done` only once its `code` globs match real files, `verified_by` tests are
+`passing`, and it traces to a requirement (directly or via parent).
 
-Phase 1 does **not** add other cross-artifact rules (Epic/Story rollups, Release
-contents, etc.) — that's Phase 2. Don't add new artifact *types*.
+## Editing the data/AI layers
 
-## The gate
-
-The repo **must pass its own linter**: `go test ./...` runs `TestDogfood`, which
-calls `Validate` on the repo root and asserts zero error findings. `iBuild
-validate .` must exit 0; `iBuild validate testdata/broken` must exit 1. Keep both
-true on every commit — a `Task` may only be `status: done` once its `code` globs
-match real files, its `verified_by` tests are `passing`, and it traces to a
-requirement (directly or via its parent Story).
-
-## Layout
-
-`cmd/iBuild` (thin) · `internal/okf` (frontmatter + glob, type-agnostic) ·
-`internal/types` (Layer 1 registry + dialect) · `internal/validate` (Layer 2a
-per-doc, 2b graph + completeness; `export.go` = the `graph` projection) ·
-`internal/graphx` (public graph model + JSON + focus) · `internal/scaffold`
-(`init`, embeds the base profile + bundle skeleton) · `internal/instructions`
-(`instructions` — a read-only authoring-template projection of the registry, like
-`graph`; the type name is an argument, never a literal) · `internal/report` (text +
-stable JSON) · `internal/config` · `internal/model` (Finding). Build with
-`CGO_ENABLED=0`.
-
-## Phase 2–4 — authoring & planning (deterministic core stays AI-free)
-
-`iBuild init` scaffolds a new project (never overwrites; init→validate round-trips
-to zero errors). `iBuild graph [--node/--depth/--rel/--body]` is a deterministic,
-sorted JSON projection of the typed link graph — the LLM's fast-context oracle and
-a future viz hook; it computes no findings and is not a gate. Both stay data-driven
-(node `fields` is a generic map — never `Get("title")`) and tolerant (unknown
-types / unresolved links still appear). `graph` shares discovery with `validate`
-via `loadArtifacts`/`buildGraph` (export uses a throwaway collector). The AI layer
-lives entirely in `plugin/` (a Claude Code plugin: `/ibuild-*` skills + two
-read-only subagents) — the **single source of truth**. `init` vendors a
-byte-identical mirror into each project's `.claude/` (skills + agents + the
-validate-on-edit hook as `settings.json`) so a clone is self-contained, no
-marketplace install. `plugin/` is canonical: edit it, then
-`go generate ./internal/scaffold` to resync `templates/.claude`; `TestClaudeMirror`
-is the drift gate. The AI layer orchestrates the binary, is suggest-only, never
-auto-commits, and never runs inside the linter. New gates: `TestInitRoundTrip`,
-`TestGraphDogfood`, `TestClaudeMirror`.
-
-**Change overlay (spec-driven evolution).** The base profile adds two data-driven
-types — `Change` (a proposal to evolve the system; modeled on `Bug`) and `Scenario`
-(a GIVEN/WHEN/THEN acceptance criterion in RFC 2119 language that `verifies` a
-Requirement, so it counts toward verification for free). Both are pure
-`docs/types/*.md`: zero engine code, and they draw **no** chain findings by design
-(neither is a requirement nor task-like), so they add intent-capture without a new
-gate. The `Change` lifecycle (`proposed→active→done→archived`) is just a `status`
-enum driven by four suggest-only skills (`/ibuild-explore`, `/ibuild-propose`,
-`/ibuild-apply`, `/ibuild-archive`). Deltas map onto existing mechanics — ADDED = a
-new `proposed` requirement, MODIFIED = edit in place (git is the diff), REMOVED =
-`status: deprecated` — so there is **no** change-as-folder, no delta dialect, and no
-merge engine: git stays the source of truth.
+- Type profile is data: edit `docs/types/*.md` and `iBuild validate` follows with
+  zero code change. Keep `templates/profiles/full` ≈ `docs/types`.
+- AI layer: `plugin/` is canonical (suggest-only skills + 2 read-only subagents).
+  Edit it, then `bun run sync:claude` to refresh `templates/.claude`; the drift gate
+  enforces byte-identity. Edit `templates/` → `bun run gen:embedded`.
+- The repo **dogfoods itself**: the master spec is decomposed into ~191
+  `CatalogRequirement` artifacts under `docs/requirements/<area>/` (status `draft`
+  ⇒ no chain findings until scheduled); decisions are ADRs; the rebuild roadmap is
+  the adoption Initiative + phase Epics in `docs/work/`. The Go reference is at git
+  tag `legacy-go-impl` (and gitignored `.context/scratch/legacy/`).
