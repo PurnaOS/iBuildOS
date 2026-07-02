@@ -1,0 +1,23 @@
+{
+  "name": "ibuildos",
+  "version": "0.5.0",
+  "description": "iBuild — a git-native, deterministic OKF-SDLC traceability linter and toolchain.",
+  "type": "module",
+  "bin": { "iBuild": "dist/iBuild" },
+  "scripts": {
+    "build": "bun run gen:embedded && bun build --compile --define IBUILD_VERSION=\"'$(git describe --tags --always --dirty 2>/dev/null || echo dev)'\" --outfile dist/iBuild src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check:literals": "bun run scripts/check-literals.ts",
+    "gen:embedded": "bun run scripts/gen-embedded.ts",
+    "sync:claude": "bun run scripts/sync-claude-mirror.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "yaml": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.2"
+  }
+}
