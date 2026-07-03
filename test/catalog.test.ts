@@ -32,9 +32,9 @@ test("the full catalog is present (CatalogRequirements + ADRs + adoption tracker
   const arts = artifacts();
   const byType = (t: string) => arts.filter((a) => a.type === t);
   expect(byType("CatalogRequirement").length).toBeGreaterThanOrEqual(180);
-  expect(byType("ADR").length).toBe(12);
-  expect(byType("Initiative").length).toBe(1);
-  expect(byType("Epic").length).toBe(14); // one per phase 0..13
+  expect(byType("ADR").length).toBe(13);
+  expect(byType("Initiative").length).toBe(2); // the rebuild + the agent control plane
+  expect(byType("Epic").length).toBe(15); // one per phase 0..13 + phase 14
 });
 
 test("every artifact id is unique", () => {
@@ -43,14 +43,16 @@ test("every artifact id is unique", () => {
   expect(dups).toEqual([]);
 });
 
-test("CatalogRequirements are catalogued at draft (draw no chain findings)", () => {
+test("CatalogRequirements carry a valid lifecycle status (draft until scheduled)", () => {
   const cfg = load(repoRoot);
   const root = cfg.rootDir();
   for (const rel of matchFiles(root, ["requirements/**"])) {
     if (!rel.endsWith(".md")) continue;
     const [d] = parseOkf(rel, readFileSync(join(root, rel), "utf8"));
     if (scalarText(d.get("type")?.valNode) === "CatalogRequirement") {
-      expect(scalarText(d.get("status")?.valNode), rel).toBe("draft");
+      // draft = catalogued, not yet scheduled (draws no chain findings);
+      // accepted/implemented = scheduled into a phase and held to the full chain.
+      expect(["draft", "accepted", "implemented"], rel).toContain(scalarText(d.get("status")?.valNode));
     }
   }
 });

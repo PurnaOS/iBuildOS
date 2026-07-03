@@ -16,9 +16,11 @@ test("gaps: orphan source files + active requirements fully traced", () => {
   const sourceFiles = matchFiles(repoRoot, ["src/**"]);
   const { graph, reg } = buildExportGraph(repoRoot, cfg, { body: "none" });
   const gaps = buildGaps(graph, reg, cfg, sourceFiles);
-  // okf is linked to task-0001 (code: src/core/okf/**); cli.ts is not linked to any task
-  expect(gaps.orphanCode).toContain("src/cli.ts");
+  // okf is linked to task-0001 and run/cli to task-0005; version.ts is not linked to any task
+  expect(gaps.orphanCode).toContain("src/version.ts");
   expect(gaps.orphanCode).not.toContain("src/core/okf/frontmatter.ts");
+  expect(gaps.orphanCode).not.toContain("src/core/run/loop.ts");
+  expect(gaps.orphanCode).not.toContain("src/cli.ts");
   // the only active requirement (FR-0001) is implemented + verified
   expect(gaps.untestedRequirements).toEqual([]);
   expect(gaps.unimplementedRequirements).toEqual([]);

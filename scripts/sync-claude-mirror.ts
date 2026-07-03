@@ -13,6 +13,7 @@ rmSync(mirror, { recursive: true, force: true });
 mkdirSync(mirror, { recursive: true });
 cpSync(join(plugin, "skills"), join(mirror, "skills"), { recursive: true });
 cpSync(join(plugin, "agents"), join(mirror, "agents"), { recursive: true });
+cpSync(join(plugin, "commands"), join(mirror, "commands"), { recursive: true });
 copyFileSync(join(plugin, "hooks", "hooks.json"), join(mirror, "settings.json"));
 
 console.log("sync:claude: templates/.claude rebuilt from plugin/");

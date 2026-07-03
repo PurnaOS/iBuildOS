@@ -51,7 +51,7 @@ export function renderApp(ctx: StudioContext): string {
 const TABS = [
   ["dash","Dashboard"],["reqs","Requirements"],["plan","Plan"],["arts","Artifacts"],
   ["author","Author"],["review","Review"],["operate","Operate"],
-  ["agent","Agent"],["work","Workspaces"],["mine","My Work"],["team","People"]
+  ["agent","Agents"],["work","Workspaces"],["mine","My Work"],["team","People"]
 ];
 const view = document.getElementById('view'), nav = document.getElementById('tabs');
 let currentTab='dash';

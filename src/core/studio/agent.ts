@@ -6,6 +6,7 @@
 import { stableStringify } from "../graphx/encode.ts";
 import type { Config } from "../config/config.ts";
 import { validate } from "../validate/validate.ts";
+import { spawnHarness } from "../run/harness.ts";
 import type { StudioContext } from "./api.ts";
 import type { Broadcaster, PostHandler } from "./server.ts";
 import { changedFiles } from "./git.ts";
@@ -15,10 +16,8 @@ function json(obj: unknown, status = 200): Response {
   return new Response(stableStringify(obj), { status, headers: { "content-type": "application/json" } });
 }
 
-// buildArgv substitutes the prompt as a SINGLE argv element — never a shell token.
-export function buildArgv(cfg: Config, prompt: string): string[] {
-  return [cfg.harness.command, ...cfg.harness.args.map((a) => (a === "{prompt}" ? prompt : a))];
-}
+// buildArgv lives with the shared spawn code; re-exported to keep this surface.
+export { buildArgv } from "../run/harness.ts";
 
 export function buildPrompt(intent: string, skill?: string): string {
   const lead = skill ? `Run /${skill}. ` : "";
@@ -41,28 +40,11 @@ export function preflight(cfg: Config): { available: boolean; version: string; m
   return { available: true, version, message: `${bin} found` };
 }
 
-// defaultRunner spawns the harness argv in the bundle dir and streams its output.
+// defaultRunner spawns the harness argv in the bundle dir and streams its output
+// (no timeout: the Studio run is interactive and human-attended).
 export function defaultRunner(): HarnessRunner {
-  return async (ctx, prompt, emit) => {
-    const proc = Bun.spawn(buildArgv(ctx.cfg, prompt), { cwd: ctx.bundleDir, stdout: "pipe", stderr: "pipe" });
-    const pump = async (stream: ReadableStream<Uint8Array> | undefined) => {
-      if (!stream) return;
-      const reader = stream.getReader();
-      const dec = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const l of lines) emit(l);
-      }
-      if (buf) emit(buf);
-    };
-    await Promise.all([pump(proc.stdout), pump(proc.stderr)]);
-    return await proc.exited;
-  };
+  const spawn = spawnHarness();
+  return async (ctx, prompt, emit) => (await spawn(ctx.cfg, ctx.bundleDir, prompt, emit, 0)).exit;
 }
 
 export function handleAgentFactory(runner: HarnessRunner): PostHandler {

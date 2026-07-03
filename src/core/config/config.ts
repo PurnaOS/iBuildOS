@@ -23,6 +23,9 @@ export interface ChainConfig {
   proposedStatuses: string[];
   doneStatuses: string[];
   passingStatuses: string[];
+  readyStatuses: string[];
+  claimStatus: string;
+  blockedStatus: string;
 }
 
 export function defaultChain(): ChainConfig {
@@ -36,6 +39,9 @@ export function defaultChain(): ChainConfig {
     proposedStatuses: ["proposed"],
     doneStatuses: ["done"],
     passingStatuses: ["passing"],
+    readyStatuses: ["todo"],
+    claimStatus: "in_progress",
+    blockedStatus: "blocked",
   };
 }
 
@@ -67,6 +73,47 @@ export function defaultHarness(): HarnessConfig {
   return { name: "claude", command: "claude", args: ["-p", "{prompt}", "--permission-mode", "acceptEdits"] };
 }
 
+// RunConfig tunes the `iBuild run` autonomous work executor (AG-012). The
+// relationship/field names here are config keys like ChainConfig's — the engine
+// never names a taxonomy type; the AgentRun/Agent shapes are profile data.
+export interface RunConfig {
+  maxTasks: number; // 0 = unlimited
+  maxMinutes: number; // wall-clock budget for the whole run; 0 = unlimited
+  taskTimeout: number; // minutes per harness spawn before the kill-timer fires
+  retries: number; // re-prompts per task after a failed gate
+  interval: number; // --watch poll interval, seconds
+  commit: boolean; // commit per task (the audit ledger); false = suggest-only
+  onFailure: string; // "stop" (leave tree for the human) | "skip" (block + continue)
+  role: string; // default role key into roles
+  roles: Record<string, string>; // role key -> root-relative charter artifact path
+  recordsDir: string; // root-relative dir for run records
+  gateTest: boolean; // also gate each task on tooling.test
+  priorityField: string; // BacklogItem-style priority field used for ordering
+  runByRel: string; // run-record -> agent relationship name
+  executesRel: string; // run-record -> work-item relationship name
+  agentActiveStatuses: string[]; // agent statuses the executor may spawn
+}
+
+export function defaultRun(): RunConfig {
+  return {
+    maxTasks: 0,
+    maxMinutes: 0,
+    taskTimeout: 30,
+    retries: 1,
+    interval: 300,
+    commit: true,
+    onFailure: "stop",
+    role: "implementer",
+    roles: { implementer: "/agents/agent-implementer.md" },
+    recordsDir: "work/runs",
+    gateTest: true,
+    priorityField: "priority",
+    runByRel: "run_by",
+    executesRel: "executes",
+    agentActiveStatuses: ["active"],
+  };
+}
+
 // Config is the resolved bundle configuration for one run.
 export class Config {
   root = "docs";
@@ -75,6 +122,7 @@ export class Config {
   chain: ChainConfig = defaultChain();
   tooling: ToolingConfig = defaultTooling();
   harness: HarnessConfig = defaultHarness();
+  run: RunConfig = defaultRun();
   // The SDLC profile this bundle targets — semantically versioned + shareable
   // (GV-001/003). Pinned in-repo so tool, profile, and OKF-spec versions agree
   // within a commit (VL-012 / decision D-008).
@@ -155,6 +203,9 @@ export function load(bundleDir: string): Config {
     setList(c.proposed_statuses, (v) => (cfg.chain.proposedStatuses = v));
     setList(c.done_statuses, (v) => (cfg.chain.doneStatuses = v));
     setList(c.passing_statuses, (v) => (cfg.chain.passingStatuses = v));
+    setList(c.ready_statuses, (v) => (cfg.chain.readyStatuses = v));
+    setStr(c.claim_status, (v) => (cfg.chain.claimStatus = v));
+    setStr(c.blocked_status, (v) => (cfg.chain.blockedStatus = v));
   }
 
   const pr = fc.profile;
@@ -180,6 +231,32 @@ export function load(bundleDir: string): Config {
     setStr(hc.command, (v) => (cfg.harness.command = v));
     setList(hc.args, (v) => (cfg.harness.args = v));
   }
+
+  const rn = fc.run;
+  if (rn && typeof rn === "object") {
+    const r = rn as Record<string, unknown>;
+    setNum(r.max_tasks, (v) => (cfg.run.maxTasks = v));
+    setNum(r.max_minutes, (v) => (cfg.run.maxMinutes = v));
+    setNum(r.task_timeout, (v) => (cfg.run.taskTimeout = v));
+    setNum(r.retries, (v) => (cfg.run.retries = v));
+    setNum(r.interval, (v) => (cfg.run.interval = v));
+    setBool(r.commit, (v) => (cfg.run.commit = v));
+    setStr(r.on_failure, (v) => (cfg.run.onFailure = v));
+    setStr(r.role, (v) => (cfg.run.role = v));
+    setStr(r.records_dir, (v) => (cfg.run.recordsDir = v));
+    setBool(r.gate_test, (v) => (cfg.run.gateTest = v));
+    setStr(r.priority_field, (v) => (cfg.run.priorityField = v));
+    setStr(r.run_by_rel, (v) => (cfg.run.runByRel = v));
+    setStr(r.executes_rel, (v) => (cfg.run.executesRel = v));
+    setList(r.agent_active_statuses, (v) => (cfg.run.agentActiveStatuses = v));
+    if (r.roles && typeof r.roles === "object" && !Array.isArray(r.roles)) {
+      const roles: Record<string, string> = {};
+      for (const [k, v] of Object.entries(r.roles as Record<string, unknown>)) {
+        if (typeof v === "string") roles[k] = v;
+      }
+      cfg.run.roles = roles;
+    }
+  }
   return cfg;
 }
 
@@ -189,4 +266,12 @@ function setStr(v: unknown, set: (s: string) => void): void {
 
 function setList(v: unknown, set: (a: string[]) => void): void {
   if (Array.isArray(v)) set(v.map(String));
+}
+
+function setNum(v: unknown, set: (n: number) => void): void {
+  if (typeof v === "number" && Number.isFinite(v)) set(v);
+}
+
+function setBool(v: unknown, set: (b: boolean) => void): void {
+  if (typeof v === "boolean") set(v);
 }

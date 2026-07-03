@@ -13,4 +13,5 @@ artifacts:
   - tests/**
   - changes/**
   - scenarios/**
+  - agents/**
 code_field: code

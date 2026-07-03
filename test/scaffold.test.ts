@@ -61,6 +61,7 @@ function claudeSource(rel: string): string | null {
   if (rel === "settings.json") return join(repoRoot, "plugin", "hooks", "hooks.json");
   if (rel.startsWith("skills/")) return join(repoRoot, "plugin", rel);
   if (rel.startsWith("agents/")) return join(repoRoot, "plugin", rel);
+  if (rel.startsWith("commands/")) return join(repoRoot, "plugin", rel);
   return null;
 }
 function walk(dir: string, base = dir): string[] {
@@ -82,7 +83,7 @@ test("TestClaudeMirror: vendored .claude is byte-identical to plugin/", () => {
   }
   // no silent drops: every plugin skill/agent is mirrored
   const pluginDir = join(repoRoot, "plugin");
-  for (const rel of [...walk(join(pluginDir, "skills"), pluginDir), ...walk(join(pluginDir, "agents"), pluginDir)]) {
+  for (const rel of [...walk(join(pluginDir, "skills"), pluginDir), ...walk(join(pluginDir, "agents"), pluginDir), ...walk(join(pluginDir, "commands"), pluginDir)]) {
     expect(statSync(join(mirror, rel)).isFile(), rel).toBe(true);
   }
 });

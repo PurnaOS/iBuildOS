@@ -32,6 +32,10 @@ WorkItem (abstract: id, title, owner, status)
 ├── Change · Scenario
 ├── Vision · PRD · Persona
 └── Release · Sprint · Milestone · Roadmap
+
+Actor (abstract: id, name)
+├── User · Team
+└── Agent (autonomous; body = role charter; runs recorded as AgentRun)
 ```
 
 A relationship whose `target` is an abstract base accepts any subtype — so a link
@@ -73,6 +77,7 @@ Milestones `require` work; Roadmaps `include` Initiatives.
 | Jira — initiatives, epics, stories, tasks, sub-tasks, bugs, spikes | Initiative, Epic, Story, Task, Subtask, Bug, Spike |
 | Jira — sprints, versions, roadmaps, milestones | Sprint, Release, Roadmap, Milestone |
 | Jira test management (Xray, Zephyr) | Test |
+| Agent control planes (Paperclip et al.) — agent registry, run ledger | Agent, AgentRun |
 
 Every one of these is a single markdown file with typed frontmatter,
 version-controlled in git and validated by iBuild — so the relationships above are

@@ -488,6 +488,17 @@ architecture/ADR/runbook artifacts.*
   shall be clearly labeled as advisory.
 - **AG-008 — Auditable.** Agent prompts/commands shall live in the repo and agent actions shall be logged
   and reviewable.
+- **AG-009 — Agent-team backlog execution kit.** iBuild shall ship an installable orchestration kit
+  (`/run-backlog` command, role charters, watchdog, validate-gated task completion, permission guidance)
+  that lets a coding-agent team execute an entire iBuild backlog unattended.
+- **AG-010 — Agent registry as artifacts.** Autonomous agents shall be first-class OKF artifacts (`Agent`
+  extends `Actor`; body = role charter; org chart via `reports_to`) — the repo is the registry.
+- **AG-011 — Agent run audit log.** Every autonomous execution shall be recorded as an `AgentRun` artifact
+  (outcome, UTC times, harness, `run_by`/`executes` links); claims are repo state; progress surfaces are
+  derived, never hand-maintained.
+- **AG-012 — `iBuild run` autonomous work executor.** A deterministic, config-keyed, harness-agnostic loop:
+  select ready task → spawn harness → gate on validate + tests → record AgentRun → commit locally per task —
+  never push.
 
 ### M. Static Analysis & Gap Detection — `GP`
 

@@ -31,6 +31,15 @@ Change + the requirements it affects) → `/ibuild-apply` (break down + implemen
 folder; git stays the source of truth. Use `Scenario` artifacts for GIVEN/WHEN/THEN
 acceptance criteria in RFC 2119 language.
 
+**Run the backlog with an agent team?** `/run-backlog` (vendored in
+`.claude/commands/`) coordinates a lead + design/implementer/QA/bug-fixer/
+design-review/PM team that executes every `todo` Task unattended. Charters live
+as `Agent` artifacts in `docs/agents/`; every execution is recorded as an
+`AgentRun` under `docs/work/runs/` (both need the full profile — `iBuild init
+--full`, or copy `agent.md`/`agent-run.md` into `docs/types/`). `iBuild run`
+does the same for a single agent, one task at a time. Both are operator modes:
+they commit locally per task and never push — unlike the suggest-only skills.
+
 The skills are vendored in `.claude/` (committed with this repo), so they work on
 clone with no install. To also install them machine-wide: `/plugin marketplace add
 PurnaOS/iBuildOS` then `/plugin install ibuildos`.
