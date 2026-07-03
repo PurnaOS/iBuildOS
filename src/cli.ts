@@ -27,6 +27,9 @@ import { statusReport, releaseNotes } from "./core/report/comms.ts";
 import { renderSite } from "./core/site/site.ts";
 import { serve as serveStudio } from "./core/studio/server.ts";
 import { studioHandlers } from "./core/studio/handlers.ts";
+import { preflight as harnessPreflight } from "./core/studio/agent.ts";
+import { type RunOptions, runLoop } from "./core/run/loop.ts";
+import { spawnHarness } from "./core/run/harness.ts";
 import { statSync } from "node:fs";
 import { matchFiles } from "./core/okf/glob.ts";
 import { countBySeverity } from "./core/model/model.ts";
@@ -51,6 +54,9 @@ Usage:
   iBuild serve [path] [--port N] [--types <dir>]   interactive local Studio app (localhost-only)
   iBuild check [path] [--types <dir>]           unified gate: lint + staleness + validate
   iBuild test [path] [--cmd <c>] [--record <file> [--id <slug>]]   run the test runner; record a TestResult
+  iBuild run [path] [--once|--watch] [--max N] [--task <ref>] [--role <r>]
+             [--timeout <min>] [--interval <sec>] [--dry-run] [--json]
+             [--no-commit] [--reclaim] [--types <dir>]   autonomous work executor
   iBuild instructions [Type] [--format text|json] [--types <dir>]
   iBuild agents [path] [--out <file>] [--types <dir>]
   iBuild version
@@ -58,6 +64,10 @@ Usage:
 
   init          scaffold a new project (lean core profile; --full for the whole taxonomy)
   validate      check the bundle; deterministic gate (the AI layer never runs here)
+  run           complete ready tasks with the configured coding harness: claim ->
+                prompt -> spawn -> gate on validate+tests -> record an AgentRun ->
+                commit locally (never pushes). --once = one task (cron/heartbeat
+                unit); --watch = poll; --dry-run = print the ready queue only
   graph         export the typed link graph as JSON (or GraphML); --node focuses a neighborhood
   matrix        requirements traceability matrix: who implements/verifies each requirement
   instructions  print an authoring template for a type (from docs/types/); no arg lists all
@@ -76,6 +86,7 @@ const VALUE_FLAGS = new Set([
   "--format", "-format", "--types", "-types", "--out", "-out", "--scope", "-scope",
   "--body", "-body", "--node", "-node", "--depth", "-depth", "--rel", "-rel", "--addr", "-addr",
   "--cmd", "-cmd", "--record", "-record", "--id", "-id",
+  "--max", "-max", "--task", "-task", "--role", "-role", "--timeout", "-timeout", "--interval", "-interval",
 ]);
 
 function splitArgs(args: string[]): { path: string; flags: string[] } {
@@ -659,6 +670,73 @@ function runInstructions(args: string[]): number {
   }
 }
 
+// runRun drives the autonomous work executor (AG-012). Async (the loop awaits
+// the harness), so it is dispatched beside `serve` rather than through main().
+async function runRun(args: string[]): Promise<number> {
+  const { path: rawPath, flags } = splitArgs(args);
+  const opts = parseFlags(
+    flags,
+    new Set(["max", "task", "role", "timeout", "interval", "types"]),
+    new Set(["once", "watch", "dry-run", "json", "no-commit", "reclaim"]),
+  );
+  if (opts === null) {
+    process.stderr.write("run: bad flag\n" + USAGE + "\n");
+    return 2;
+  }
+  if (opts.once && opts.watch) {
+    process.stderr.write("run: --once and --watch are mutually exclusive\n");
+    return 2;
+  }
+  const path = rawPath === "" ? "." : rawPath;
+  const cfg = loadCfg(path, opts.types);
+  if (!cfg) return 1;
+
+  const num = (v: string | undefined, dflt: number): number => {
+    if (v === undefined) return dflt;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : dflt;
+  };
+  const onFailure = cfg.run.onFailure === "skip" ? "skip" : "stop";
+  const runOpts: RunOptions = {
+    mode: opts.once ? "once" : opts.watch ? "watch" : "drain",
+    maxTasks: num(opts.max, cfg.run.maxTasks),
+    maxMinutes: cfg.run.maxMinutes,
+    taskTimeoutMs: num(opts.timeout, cfg.run.taskTimeout) * 60_000,
+    intervalMs: num(opts.interval, cfg.run.interval) * 1000,
+    retries: cfg.run.retries,
+    task: opts.task ?? "",
+    role: opts.role ?? cfg.run.role,
+    dryRun: opts["dry-run"] === "true",
+    commit: opts["no-commit"] === "true" ? false : cfg.run.commit,
+    onFailure,
+    reclaim: opts.reclaim === "true",
+  };
+
+  if (!runOpts.dryRun) {
+    const pf = harnessPreflight(cfg);
+    if (!pf.available) {
+      process.stderr.write(`run: ${pf.message}\n`);
+      return 1;
+    }
+  }
+
+  const { summary, exit } = await runLoop(path, cfg, runOpts, {
+    runner: spawnHarness(),
+    clock: () => new Date(),
+    log: (line) => process.stdout.write(line + "\n"),
+  });
+  if (opts.json === "true") {
+    process.stdout.write(stableStringify(summary) + "\n");
+  } else {
+    if (runOpts.dryRun) {
+      process.stdout.write(summary.ready.length === 0 ? "ready queue is empty.\n" : `ready queue (${summary.ready.length}):\n`);
+      for (const t of summary.ready) process.stdout.write(`  ${t.id !== "" ? t.id : t.key} — ${t.title}\n`);
+    }
+    process.stdout.write(`run: ${summary.stopped}; ${summary.tasks.length} task(s) processed.\n`);
+  }
+  return exit;
+}
+
 function main(argv: string[]): number {
   const [cmd, ...rest] = argv;
   switch (cmd) {
@@ -716,6 +794,16 @@ if (argv[0] === "serve") {
   // serve blocks: on a clean start Bun.serve keeps the process alive; only exit on error.
   const rc = runServe(argv.slice(1));
   if (rc !== 0) process.exit(rc);
+} else if (argv[0] === "run") {
+  // run awaits the harness subprocess per task, so it dispatches async. Nothing
+  // may escape as an unhandled rejection — the exit-code contract holds even
+  // when git/the harness throws.
+  try {
+    process.exit(await runRun(argv.slice(1)));
+  } catch (e) {
+    process.stderr.write(`run: ${(e as Error).message}\n`);
+    process.exit(1);
+  }
 } else {
   process.exit(main(argv));
 }

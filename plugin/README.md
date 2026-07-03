@@ -8,7 +8,7 @@ auto-commits and never runs inside the linter.**
 ## Prerequisite
 
 The `iBuild` binary on your PATH (from the [iBuildOS](https://github.com/PurnaOS/iBuildOS)
-repo: `go build -o iBuild ./cmd/iBuild`). The skills orchestrate it.
+repo: `bun run build`, which compiles `dist/iBuild`). The skills orchestrate it.
 
 ## Install
 
@@ -58,6 +58,31 @@ is the diff), REMOVED = `status: deprecated` — so no new dialect and no new ga
 `Scenario` artifacts capture GIVEN/WHEN/THEN acceptance criteria in RFC 2119
 language; because a Scenario `verifies` a Requirement, it counts toward chain
 completeness exactly like a Test.
+
+## The agent team (autonomous backlog execution)
+
+`/run-backlog` (in `commands/`) turns Claude Code into a coordinated team —
+lead, design, implementers, QA-with-personas, bug-fixer, design-review,
+product-manager — that executes the whole iBuild backlog unattended. The
+control plane is the repo itself:
+
+- **Roster**: `Agent` artifacts in `docs/agents/` (body = charter; `paused`
+  benches one; `reports_to` draws the org chart).
+- **Audit ledger**: every execution is an `AgentRun` artifact under
+  `docs/work/runs/` (`running`/`succeeded`/`failed`/`aborted`, UTC times,
+  `run_by`/`executes` links). Claiming a task = one commit (status +
+  assignee + running ARUN). Progress is derived — Studio, `iBuild status .`,
+  `git log docs/work/runs/` — never hand-maintained dashboard files.
+- **Gate**: a `TaskCompleted` hook (installed to `.claude/settings.local.json`
+  at run start, alongside the team permission set with `git push` denied)
+  blocks team-task completion while `iBuild validate` reports errors.
+- **Watchdog**: an hourly cron restarts stalled runs headless; state lives in
+  git + frontmatter so restarts are safe. `iBuild run --once` is the
+  single-agent alternative for simple backlogs.
+
+**Boundary**: skills suggest and never commit; `/run-backlog` (like
+`iBuild run`) is operator mode — a human invokes it, teammates commit locally
+per task, and nothing ever pushes. Review happens on the final diff.
 
 ## Principles
 

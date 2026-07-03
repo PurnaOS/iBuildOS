@@ -34,15 +34,18 @@ self-contained executable with **Bun**. These rules are load-bearing.
 `graphx` (graph + focus + encode + rtm + gaps + impact + graphml) ·
 `report` (text/json + comms) · `instructions` · `contract` (AGENTS.md) ·
 `scaffold` (init + generated `embedded.ts`) · `metrics` (status, mine) ·
-`tooling` (orchestrate external test/lint/staleness) · `site` (static HTML portal).
-CLI: `src/cli.ts`. AI layer: canonical `plugin/` mirrored to `templates/.claude`.
+`tooling` (orchestrate external test/lint/staleness) · `site` (static HTML portal) ·
+`run` (autonomous work executor: ready task → spawn `cfg.harness` → gate on
+validate+tests → AgentRun record → local commit; never pushes).
+CLI: `src/cli.ts`. AI layer: canonical `plugin/` (skills + agents + `commands/`
+run-backlog kit) mirrored to `templates/.claude`.
 
 ## Commands
 
 `iBuild validate` (gate; `--changed`/`--base`/`--scope`/`--baseline`/`--report-only`) ·
 `baseline` · `graph` (json/graphml, `--node`) · `matrix` (RTM) · `impact` · `gaps` ·
-`status` · `mine` · `report` · `check` (unified) · `test` · `site` · `instructions` ·
-`agents` · `init` (`--full`/`--example`).
+`status` · `mine` · `report` · `check` (unified) · `test` · `run` (`--once`/`--watch`/
+`--dry-run`/`--task`) · `site` · `instructions` · `agents` · `init` (`--full`/`--example`).
 
 ## The gate (run on every change)
 

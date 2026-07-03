@@ -12,6 +12,7 @@ artifacts:
   - scenarios/**
   - decisions/**
   - identity/**
+  - agents/**
   - architecture/**
   - runbooks/**
   - coordination/**

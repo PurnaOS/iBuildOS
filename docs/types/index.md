@@ -35,6 +35,11 @@ together and map onto Jira and Confluence.
 * [Scenario](scenario.md) - a GIVEN/WHEN/THEN acceptance scenario in RFC 2119 language
 * [Change](change.md) - a proposal to evolve the system (the spec-driven change unit)
 
+# Agents (the autonomous control plane)
+
+* [Agent](agent.md) - an autonomous agent identity; body = role charter
+* [AgentRun](agent-run.md) - one recorded execution of an agent against a work item
+
 # Planning (replaces Jira boards & roadmaps)
 
 * [Roadmap](roadmap.md) - sequences initiatives over time
