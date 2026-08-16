@@ -1,3 +1,0 @@
-# ponytail: determinism over coverage theater — flip on only when a gap appears.
-[test]
-coverage = false

@@ -1,7 +1,0 @@
-root: docs
-types: types
-artifacts:
-  - requirements/**
-  - work/**
-  - tests/**
-code_field: code
