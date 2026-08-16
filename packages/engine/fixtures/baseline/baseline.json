@@ -1,0 +1,12 @@
+{
+  "formats": 1,
+  "engine": "1.0.0",
+  "profile": "ibuildos-default@1.0.0",
+  "generated": "2026-08-14T10:00:00Z",
+  "scope_events": [
+    { "at": "2026-08-14", "added_paths": ["src/legacy/**"], "entries": 214 }
+  ],
+  "entries": [
+    { "rule": "chain/story-untested", "artifact": "ST-0012", "fp": "9f2ab4c1d0e88a37" }
+  ]
+}

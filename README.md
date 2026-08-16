@@ -1,138 +1,59 @@
 # iBuildOS
 
-**Your whole software lifecycle, in the git repo — checkable.**
+**iBuildOS v2 is a UI-driven application-building platform.** A desktop app
+where a product person and an architect define what to build, AI coding
+agents build it — several at once, each in an isolated git worktree, driven
+over the open [Agent Client Protocol](https://agentclientprotocol.com) — and
+everything (requirements, stories, tests, code, decisions) lives as
+structured, version-controlled knowledge in one git repo.
 
-Requirements, plans, work, bugs, tests, decisions, and code all live together as
-plain markdown files (with a bit of YAML on top), next to the code they describe.
-A fast, offline linter (`iBuild`) keeps them honest: it checks that every
-requirement is built and tested, that links point at real things, and that a
-task isn't marked "done" until its code exists and its tests pass. AI agents help
-you write it all; they never commit behind your back.
+> **This repository is currently being rebuilt from a clean slate as v2.**
+> The previous CLI-first traceability linter (v0.5, package `ibuildos`) is
+> fully preserved at branch [`archive/v1-cli`](../../tree/archive/v1-cli) and
+> tag `v1-cli-archive` — its README and USER_GUIDE describe that tool, not
+> what's being built here. The v0.5 concepts (OKF storage, self-describing
+> type profiles, deterministic validation, typed traceability) carry forward
+> into v2's design; no v0.5 code does.
 
-No database. No SaaS. No lock-in. Delete iBuildOS and you still have a usable pile
-of markdown + code. One self-contained binary, built with [Bun](https://bun.sh).
+## What v2 is
 
----
+- A product person **records what the product must do** — guided forms or a
+  conversational AI interview — producing structured, versioned requirements.
+- Requirements become **stories, tasks, and tests** through AI-assisted
+  breakdown the human reviews and approves.
+- **AI coding agents build it** — several at once, each isolated — driven
+  entirely from the UI through ACP, so any capable coding agent (Claude Code,
+  Codex CLI, …) can do the work.
+- The person **watches the product take shape live**: running previews,
+  passing tests, progress against requirements — and can **change
+  requirements mid-flight**, with the system computing impact and re-planning.
+- Every fact is a version-controlled **OKF document in the repo** — the
+  project outlives the tool.
 
-## Install
+The full specification lives in [`docs/spec/`](docs/spec/) — start with
+[`SPEC.md`](docs/spec/SPEC.md).
+
+## Status
+
+Early build — see [`docs/spec/EXECUTION-PLAN.md`](docs/spec/EXECUTION-PLAN.md)
+for the milestone sequence (M0 Foundations → M8 Delivery). What exists today:
+
+- `packages/schemas` — zod types for the OKF artifact/type-profile/config/
+  generative-UI-component formats FORMATS.md defines.
+- `packages/engine` — the OKF store (byte-preserving parse/serialize), the
+  type-profile registry, and a first slice of the deterministic rule engine.
+- `packages/stub-agent` — a scripted ACP agent (real JSON-RPC/stdio, no live
+  model) that later milestones' tests drive against instead of a live model.
+- Everything else under `packages/*` and `apps/desktop` is a placeholder
+  boundary, populated milestone by milestone.
+
+## Development
 
 ```sh
-git clone <this repo> && cd <repo>
-bun install
-bun run build          # → dist/iBuild
-cp dist/iBuild /usr/local/bin/   # optional: put it on PATH
+pnpm install
+pnpm typecheck   # turbo run typecheck, every package
+pnpm test        # turbo run test, every package
 ```
-No build? Run from source: `bun src/cli.ts <command>`.
-
-## Quick start
-
-```sh
-mkdir my-project && cd my-project
-git init                 # iBuildOS is git-native
-iBuild init --full       # scaffold the bundle (--full = whole taxonomy)
-iBuild validate .        # exits 0 — you're set up
-```
-
-`init` creates:
-- `.ibuildos.yaml` — config
-- `docs/types/*.md` — the type profile (edit these to change your process)
-- `docs/{requirements,work,tests,...}/` — where your artifacts live
-- `.claude/` — AI skills that work in Claude Code with zero install
-
-## The idea: a chain you can check
-
-```
-Requirement  →  Task  →  Code  →  Test
-```
-
-Write a requirement. Write a task that `implements` it. Point the task's `code` at
-the files it produces and `verified_by` at a test. `iBuild validate` fails until
-that chain is real. Example:
-
-```markdown
----
-type: FunctionalRequirement
-id: FR-0001
-title: Users can reset their password
-owner: alice
-status: accepted
----
-The system shall let a user reset a forgotten password via an emailed link.
-```
-```markdown
----
-type: Task
-id: TASK-0001
-title: Password-reset endpoint
-owner: alice
-status: done
-code: [src/auth/reset.ts]
-links:
-  implements: [/requirements/fr-0001.md]
-  verified_by: [/tests/test-reset.md]
----
-```
-
-Run `iBuild validate .` — it tells you, with exact file:line, anything missing.
-
-## Everyday commands
-
-| Command | Does |
-|---|---|
-| `iBuild validate .` | the gate — 0 errors to ship. `--changed` for pre-commit, `--base main` for a PR |
-| `iBuild status .` | dashboard: how many requirements built / tested / traced |
-| `iBuild matrix .` | requirements traceability matrix |
-| `iBuild gaps .` | orphan code, untested requirements |
-| `iBuild impact src/x.ts` | what a code change touches (tasks → requirements → tests) |
-| `iBuild graph . --node /work/task-0001.md` | one artifact + its neighborhood (JSON) |
-| `iBuild mine --as alice` | your owned + assigned work |
-| `iBuild report --kind status` | a stakeholder status report (draft) |
-| `iBuild site . --out portal.html` | a self-contained offline HTML portal |
-| `iBuild serve .` | **interactive Studio app** → http://127.0.0.1:4321 |
-| `iBuild instructions <Type>` | a fill-in template for any type you've defined |
-
-Run `iBuild help` for the full list.
-
-## The Studio (`iBuild serve`)
-
-A local, single-user web app (localhost only) to *see and do* everything:
-
-- **Dashboard** — coverage + health at a glance
-- **Requirements** — grouped by area, collapsible; click any to read it
-- **Plan** — a **kanban** board of your work, by status
-- **Author** — guided forms that validate as you type
-- **Review** — see your working-tree diff, *simulate* an edit's impact before you make it, discard
-- **Operate** — run validate / tests / the unified gate from the UI
-- **Agent** — ask a coding agent to make a change; it comes back as a reviewable diff, never a commit
-- **Workspaces / My Work / People** — parallel-agent workspaces, your queue, team workload
-
-Everything writes to your working tree and leaves committing to you.
-
-## The workflow (with AI, in Claude Code)
-
-| Stage | Skill |
-|---|---|
-| Capture an idea → Vision / PRD / requirements | `/ibuild-discover` |
-| Break down into epics / stories / tasks | `/ibuild-plan` |
-| Write one artifact correctly | `/ibuild-author` |
-| Write the code + tests, close the chain | `/ibuild-implement` |
-| File, reproduce, and fix a bug | `/ibuild-bug` |
-| Find chain gaps / contradictions | `/ibuild-audit`, `/ibuild-contradict` |
-| Evolve an existing system (spec-driven) | `/ibuild-explore` → `/ibuild-propose` → `/ibuild-apply` → `/ibuild-archive` |
-
-Every skill is **suggest-only**: it edits files for you to review; you commit.
-
-## Make it your own
-
-The taxonomy is data, not code. Edit `docs/types/*.md` — add fields, add
-relationships, invent new artifact types, rename statuses — and `iBuild validate`
-follows with **zero code changes**. `iBuild instructions <Type>` prints the exact
-authoring template for whatever you define.
-
-## Gate it
-
-- **Pre-commit:** `iBuild validate . --changed`
-- **CI:** run `iBuild validate .` (exit 1 fails the build); `--format json` for machine output. Brownfield repo? `--baseline` gates only *new* violations, `--report-only` annotates without failing.
 
 ## License
 

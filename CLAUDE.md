@@ -1,70 +1,132 @@
-# CLAUDE.md — durable rules for iBuildOS (TypeScript/Bun)
+# CLAUDE.md — durable rules for iBuildOS v2
 
-iBuildOS is a git-native SDLC layer on **OKF** (markdown + YAML frontmatter).
-`iBuild` is a deterministic traceability linter + toolchain for the
-**Requirement → Task → Code → Test** chain. TypeScript, compiled to a single
-self-contained executable with **Bun**. These rules are load-bearing.
+iBuildOS v2 is a **desktop application** (Electron/TypeScript) where a product
+person and an architect drive parallel AI coding agents — via the open
+**Agent Client Protocol (ACP)** — through a UI, with the git repository (code +
+OKF documents) as the single source of truth. It replaces the v0.5 CLI-first
+traceability linter (archived at branch `archive/v1-cli` / tag `v1-cli-archive`,
+also pushed to `origin`) — **no v0.5 code carries forward** (SPEC.md decision
+D-103); concepts do, re-specified fresh.
+
+## Document precedence — read in this order when in doubt
+
+All governing documents live in `docs/spec/`. When two documents seem to
+disagree:
+
+1. **`docs/spec/SPEC.md`** (v1.2) — intent and behavior. The requirement catalog
+   (`AREA-NNN` IDs, e.g. `RQ-006`), un-phased and scope-complete by design.
+2. **`docs/spec/FORMATS.md`** — bytes. Every on-disk format, ID grammar, wire
+   contract. **Authoritative on bytes** — per its own text, "a conflict is a bug
+   in this annex," meaning FORMATS wins over SPEC on byte-level questions.
+3. **`docs/spec/TECH-STACK.md`** (v1.1) — technology decisions (`T-NNN`):
+   Electron, TypeScript everywhere, pnpm + Turborepo, official ACP TS SDK,
+   CopilotKit + AG-UI, system git CLI, custom engine, Vitest + Playwright.
+4. **`docs/spec/DEFAULTS.md`** — the 20 shipped policy defaults (autonomy dial,
+   concurrency caps, retention windows, …) where SPEC/TECH-STACK left a choice
+   open.
+5. **`docs/spec/ACCEPTANCE.md`** — the 252 "done when" oracles, one per
+   requirement, plus four end-to-end narratives (N1–N4) that exercise them
+   together.
+6. **`docs/spec/EXECUTION-PLAN.md`** — delivery sequencing (milestones M0–M8)
+   and the **Builder Charter**: how an autonomous builder makes and records
+   in-session decisions (as `DC-…` Decision artifacts tagged `builder-decision`,
+   reviewed post-hoc — never blocking on a question that has a reasonable
+   default).
+7. **`docs/spec/DESIGN-CHARTER.md`** — design tokens, navigation map, and the
+   Product-mode vocabulary glossary (PS-006 bans git/engineering jargon there).
+8. **`docs/spec/PROVISIONING.md`** — human-only blockers (accounts, signing
+   certs, npm scope) — not something an agent session can resolve.
+
+`docs/spec/REQUIREMENTS.md` (the old v0.5 catalog) and the three
+`*-JOURNEY.md` docs are earlier-round material with a **different ID
+namespace** than SPEC.md's areas — mine them for ideas only; never try to
+reconcile their IDs with SPEC.md's. `BUILD-READINESS.md` and `REVIEW-GAPS.md`
+are closed audits (findings G-01..G-41, folded into the v1.1 documents above)
+— reference, don't re-litigate.
 
 ## Non-negotiables
 
-1. **Generic, data-driven.** The engine hardcodes *no* taxonomy. The only literal
-   type name in `src/` is `"ArtifactType"` (in `src/core/types/registry.ts`).
-   Every other type loads from `docs/types/*.md` at runtime. Polymorphic checks go
-   through `Registry.satisfies` (is-or-extends over the runtime `extends` graph),
-   never name comparison. `scripts/check-literals.ts` fails CI on any taxonomy
-   literal outside `registry.ts` (denylist seeded from the profile's `defines:`;
-   generated `src/core/scaffold/embedded.ts` is excluded — it is template data).
-2. **OKF tolerance.** Unknown `type` → `doc.unknownType` warning, never reject the
-   bundle; missing optional fields and broken links are surfaced, never fatal.
-3. **Deterministic only.** No AI/network in the linter. All output sorted + deduped
-   (`model.finalize`); never iterate a map/object for output. JS `JSON.stringify`
-   does NOT sort keys — `graphx/encode.ts` does. CI runs **ubuntu × macos** as the
-   byte-identity guard.
-4. **Single coupling locus.** All chain coupling lives in `config.ChainConfig`
-   (relationship names, code field, status vocabularies). Completeness keys off
-   **capability predicates** (`reg.satisfiesAny(t, reg.relTargets(implementsRel))`),
-   not type names.
+1. **ACP is the only door to AI.** No bundled model, no direct LLM API path in
+   the product (SPEC D-110/AC-001). All intelligence — interviewing, breakdown,
+   coding, review — arrives through ACP agent sessions the user configures with
+   their own auth.
+2. **The repo is the record.** Every fact that matters (requirement, story,
+   test, decision, run, release) is a version-controlled OKF document. UI state
+   is derived, never authoritative. Machine-local state (transcripts, secret
+   values, agent auth) lives outside the repo, keyed to the project's stable
+   ULID (FORMATS §7, PS-014) — never committed.
+3. **Deterministic first, AI second.** The validation/gate engine
+   (`packages/engine`) has no AI and no network. It is the sole authority on
+   "done"; no agent and no human opinion overrides a red gate on the trunk.
+4. **Self-describing process.** Artifact types, fields, statuses, links, and
+   gates are data in `docs/profile/*.md` (the type-profile dialect, FORMATS
+   §5), not logic in the app. `ProfileRegistry` (packages/engine) knows only
+   the `TypeDefinition` meta-format natively.
+5. **Worktree isolation.** All agent repository work happens inside an
+   isolated git worktree bound to one stream; the trunk checkout is never an
+   agent workspace (BD-003).
+6. **Autonomy is a dial, not a debate.** `step` / `cruise` / `auto` — the same
+   pipeline serves every level; decision points (agent questions, secret
+   requests, breakdown/change-set approvals) always stop regardless of dial;
+   red gates always stop (BD-004).
 
-## Layout (`src/core/<module>` mirrors the proven Go boundaries)
+## Monorepo layout (TECH-STACK.md §3)
 
-`okf` (frontmatter via `yaml` CST + LineCounter; case-exact glob) · `types`
-(registry + dialect: required/one_of/pattern/type/extends/abstract/json_schema) ·
-`config` (.ibuildos.yaml + ChainConfig + tooling + profile) · `model` (Finding) ·
-`validate` (document 2a, graph 2b, code, complete, docslint, baseline, export) ·
-`graphx` (graph + focus + encode + rtm + gaps + impact + graphml) ·
-`report` (text/json + comms) · `instructions` · `contract` (AGENTS.md) ·
-`scaffold` (init + generated `embedded.ts`) · `metrics` (status, mine) ·
-`tooling` (orchestrate external test/lint/staleness) · `site` (static HTML portal) ·
-`run` (autonomous work executor: ready task → spawn `cfg.harness` → gate on
-validate+tests → AgentRun record → local commit; never pushes).
-CLI: `src/cli.ts`. AI layer: canonical `plugin/` (skills + agents + `commands/`
-run-backlog kit) mirrored to `templates/.claude`.
+pnpm workspaces + Turborepo.
 
-## Commands
+```
+packages/
+  schemas/      zod types: artifact frontmatter (FORMATS §4), type-profile
+                dialect (§5), GU component envelope (§10), config (§7),
+                findings/baseline JSON (§8/§12), flow-record frontmatter (§9)
+  engine/       OKF store (CST-preserving parse/serialize), type-profile
+                registry, rule/gate engine, graph, scheduler, contract runner
+  acp/          ACP client layer, agent registry, permission broker (M3)
+  bridge/       ACP↔AG-UI bridge, generative-UI component catalog (M5)
+  cli/          @ibuildos/cli — bin `ibuildos` (not `iBuild` — DEFAULTS #13)
+  stub-agent/   scripted ACP agent over real JSON-RPC/stdio — no live model
+                in CI, ever (T-013)
+  action/       GitHub Action wrapping the CLI (M8)
+apps/
+  desktop/      Electron main/preload/renderer (M4+)
+templates/      starter app templates (Next.js/Hono/Astro) — later
+e2e/            Playwright narratives — later
+```
 
-`iBuild validate` (gate; `--changed`/`--base`/`--scope`/`--baseline`/`--report-only`) ·
-`baseline` · `graph` (json/graphml, `--node`) · `matrix` (RTM) · `impact` · `gaps` ·
-`status` · `mine` · `report` · `check` (unified) · `test` · `run` (`--once`/`--watch`/
-`--dry-run`/`--task`) · `site` · `instructions` · `agents` · `init` (`--full`/`--example`).
+Packages not yet scoped to the current milestone are placeholder
+`package.json` + `README.md` stubs (no fabricated source) — see each
+package's README for which milestone in EXECUTION-PLAN.md populates it.
 
 ## The gate (run on every change)
 
-`bun test` (dogfood `validate .`→0 errors, broken-fixture exits 1 with exactly
-`[chain.doneTaskTestNotPassing, code.noMatch, link.wrongTarget]`, init round-trip,
-graph/site determinism, `.claude` mirror + `embedded.ts` drift, OKF conformance) ·
-`bun run typecheck` · `bun run check:literals` · `bun run build`. A `Task` may be
-`status: done` only once its `code` globs match real files, `verified_by` tests are
-`passing`, and it traces to a requirement (directly or via parent).
+- `pnpm typecheck` (`turbo run typecheck`) — strict TypeScript across every
+  package.
+- `pnpm test` (`turbo run test`) — Vitest. `packages/engine`'s suite includes
+  OKF round-trip byte-fidelity (parse→serialize with no edits reproduces the
+  source exactly) and scalar-edit minimal-diff tests — do not weaken these;
+  they're the S-5 spike's ongoing regression guard.
+- Full milestone exit criteria (golden-repo fixtures validating identically
+  across OS/app/CLI, the four narrative E2E runs, etc.) are in
+  `EXECUTION-PLAN.md` §4 per milestone — this file states standing rules, not
+  the plan itself.
 
-## Editing the data/AI layers
+## Editing the OKF store
 
-- Type profile is data: edit `docs/types/*.md` and `iBuild validate` follows with
-  zero code change. Keep `templates/profiles/full` ≈ `docs/types`.
-- AI layer: `plugin/` is canonical (suggest-only skills + 2 read-only subagents).
-  Edit it, then `bun run sync:claude` to refresh `templates/.claude`; the drift gate
-  enforces byte-identity. Edit `templates/` → `bun run gen:embedded`.
-- The repo **dogfoods itself**: the master spec is decomposed into ~191
-  `CatalogRequirement` artifacts under `docs/requirements/<area>/` (status `draft`
-  ⇒ no chain findings until scheduled); decisions are ADRs; the rebuild roadmap is
-  the adoption Initiative + phase Epics in `docs/work/`. The Go reference is at git
-  tag `legacy-go-impl` (and gitignored `.context/scratch/legacy/`).
+`packages/engine/src/store/okf-document.ts` operates on the `yaml` package's
+**CST layer**, not its `Document` API — `Document#toString()` reformats
+comment spacing and flow-collection bracket padding even when nothing
+semantic changed (confirmed empirically; this is TECH-STACK's G-41
+correction). Scalar value edits go through `CST.setScalarValue` on the
+specific token (`setScalarField`), producing a true single-line diff.
+Structural edits (add/remove a field, append to a sequence) need a separate
+owned token-splice layer — not yet built; don't fake it with `Document#set`.
+
+## Fixtures
+
+`packages/engine/fixtures/` holds the FORMATS.md-normative golden examples
+(the worked Story artifact, its TypeDefinition, a baseline.json) plus a
+minimal but real type-profile (`WorkItem`/`Story`/`Requirement`/`TestCase`/
+`DesignDirection`/`Task`/`Epic`) sufficient for `ProfileRegistry` meta-
+validation to pass, and invalid counter-examples per implemented rule. This is
+a conformance-fixture stub, not the shipped default profile (SPEC.md §11's
+full type tree) — that's further M1 work.

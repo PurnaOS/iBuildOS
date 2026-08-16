@@ -1,6 +1,14 @@
 node_modules/
 dist/
+build/
+.turbo/
+*.tsbuildinfo
 *.log
 .DS_Store
-findings.json
-cli
+coverage/
+
+# electron-builder output
+apps/desktop/release/
+
+# machine-local state (FORMATS.md §8/§9): transcripts, secrets — never committed
+.ibuildos/transcripts/

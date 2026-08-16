@@ -1,0 +1,9 @@
+{
+  "name": "hello-world",
+  "description": "Smallest possible scripted turn: two message chunks, then done. Proves the JSON-RPC handshake and session/update replay mechanism end to end.",
+  "updates": [
+    { "kind": "message_chunk", "data": { "text": "Hello" } },
+    { "kind": "message_chunk", "data": { "text": ", world." } }
+  ],
+  "stopReason": "end_turn"
+}

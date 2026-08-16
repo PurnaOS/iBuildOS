@@ -1,23 +1,23 @@
 {
-  "name": "ibuildos",
-  "version": "0.5.0",
-  "description": "iBuild — a git-native, deterministic OKF-SDLC traceability linter and toolchain.",
+  "name": "ibuildos-monorepo",
+  "version": "2.0.0-dev",
+  "private": true,
+  "description": "iBuildOS v2 — a desktop app where product people and AI coding agents build software together, over a git repo of OKF documents.",
   "type": "module",
-  "bin": { "iBuild": "dist/iBuild" },
-  "scripts": {
-    "build": "bun run gen:embedded && bun build --compile --define IBUILD_VERSION=\"'$(git describe --tags --always --dirty 2>/dev/null || echo dev)'\" --outfile dist/iBuild src/cli.ts",
-    "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "check:literals": "bun run scripts/check-literals.ts",
-    "gen:embedded": "bun run scripts/gen-embedded.ts",
-    "sync:claude": "bun run scripts/sync-claude-mirror.ts"
+  "engines": {
+    "node": ">=20"
   },
-  "dependencies": {
-    "ajv": "^8.17.1",
-    "yaml": "^2.6.1"
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.7.2"
-  }
+    "@types/node": "^22.10.2",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "packageManager": "pnpm@9.12.0"
 }
