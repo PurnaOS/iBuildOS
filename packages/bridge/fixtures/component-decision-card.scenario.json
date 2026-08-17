@@ -1,0 +1,16 @@
+{
+  "name": "component-decision-card",
+  "description": "Agent emits a decision-card via the fenced ibuildos:component carrier (FORMATS.md §10 carrier B), deliberately split across four message chunks so neither the opening fence marker nor the envelope JSON lands whole in any single chunk. Proves the bridge's fenced-block scanner buffers correctly across session/update boundaries, flushes pre-fence prose before the component event, and resumes text streaming afterward.",
+  "updates": [
+    { "kind": "message_chunk", "data": { "text": "Let's decide.\n```ibuildos:comp" } },
+    { "kind": "message_chunk", "data": { "text": "onent\n{\"v\":1,\"kind\":\"decision-card\",\"cid\":\"q1\",\"tit" } },
+    {
+      "kind": "message_chunk",
+      "data": {
+        "text": "le\":\"Sync conflict policy?\",\"options\":[{\"id\":\"newest\",\"label\":\"Newest edit wins\"},{\"id\":\"ask\",\"label\":\"Ask the user\"}],\"recommend\":\"newest\"}\n``"
+      }
+    },
+    { "kind": "message_chunk", "data": { "text": "`\nThanks." } }
+  ],
+  "stopReason": "end_turn"
+}
