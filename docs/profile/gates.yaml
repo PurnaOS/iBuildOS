@@ -1,0 +1,13 @@
+# iBuildOS default gate compositions (FORMATS.md §6, VG-004). Data, not code — projects may
+# redefine or extend these (EX-004). Syntax: a gate lists rule IDs, `prefix/*` globs, other
+# gate names (composition), and `?scope=` modifiers (`stream | release | changed | all`).
+formats: 1
+gates:
+  requirement-ready: [doc/*, id/*, link/*, state/vocabulary]
+  story-ready:       [doc/*, id/*, link/*, state/*, doc/criteria-items]
+  plan:              [story-ready, chain/req-unimplemented, link/cycles]
+  stream-stage:      [doc/*, id/*, link/*, state/*, evid/tests-passing]
+  stream-done:       [stream-stage, chain/done-honest?scope=stream, sec/committed-secret]
+  merge:             [stream-done, id/duplicate, id/provisional-on-trunk, merge/*,
+                      chain/bug-regression, sec/committed-secret, pin/*]
+  release-deploy:    [merge?scope=release, evid/*, chain/story-untested?scope=release]
