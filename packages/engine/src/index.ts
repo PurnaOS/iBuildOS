@@ -9,3 +9,4 @@ export * from "./git/index.js";
 export * from "./secrets/index.js";
 export * from "./brownfield/index.js";
 export * from "./scheduler/index.js";
+export * from "./team/index.js";
