@@ -1,0 +1,5 @@
+formats: 1
+gates:
+  a: [b]
+  b: [c]
+  c: [a]
