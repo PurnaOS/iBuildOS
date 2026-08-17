@@ -31,4 +31,12 @@ export interface IbuildosApi {
       onEvent: (event: ChannelEvent<"activity.events">) => void,
     ): () => void;
   };
+  insights: {
+    progress(input: RequestInput<"insights.progress">): Promise<RequestOutput<"insights.progress">>;
+    quality(input: RequestInput<"insights.quality">): Promise<RequestOutput<"insights.quality">>;
+    workload(input: RequestInput<"insights.workload">): Promise<RequestOutput<"insights.workload">>;
+    adoption(input: RequestInput<"insights.adoption">): Promise<RequestOutput<"insights.adoption">>;
+    myQueue(input: RequestInput<"insights.my-queue">): Promise<RequestOutput<"insights.my-queue">>;
+    teamNotes(input: RequestInput<"insights.team-notes">): Promise<RequestOutput<"insights.team-notes">>;
+  };
 }

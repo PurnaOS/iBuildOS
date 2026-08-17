@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { registerIpcRouter, type IpcMainLike, type IpcRouter } from "../shared/ipc/router.js";
 import type { Backend } from "./backend/index.js";
 import { coreHandlers, coreSources } from "./ipc/core.js";
+import { insightsHandlers } from "./ipc/insights.js";
 
 // Wires T-008's generic router to this scaffold's per-domain backend facade
 // (./backend/index.ts). `ipcMain` satisfies IpcMainLike structurally — the
@@ -15,6 +16,7 @@ export function createIpcRouter(backend: Backend): IpcRouter {
     ipcMain as unknown as IpcMainLike,
     {
       ...coreHandlers(backend.core),
+      ...insightsHandlers(backend.insights),
     },
     {
       ...coreSources(backend.core),
