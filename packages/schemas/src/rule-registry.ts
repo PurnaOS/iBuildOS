@@ -67,6 +67,8 @@ export const RULE_REGISTRY: Record<string, RuleMetadata> = Object.fromEntries(
     rule("pin/profile", "warn", { ui: "warn", ci: "error" }),
     rule("guidance/stale", "warn"),
     rule("docs/todo-marker", "warn"),
+    rule("drift/retired-referenced", "warn"),
+    rule("drift/unrecorded-change", "warn"),
   ].map((r) => [r.id, r]),
 );
 
