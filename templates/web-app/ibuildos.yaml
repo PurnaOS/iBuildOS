@@ -1,0 +1,48 @@
+# Project configuration written at project-creation time — FORMATS.md §7.
+# This copy is the reference/example a `web-app` scaffold ships with: the
+# app creation flow overwrites `project.id` (a freshly generated ULID,
+# PS-014) and `project.name` with the user's own values; everything else
+# (contract, profile, template provenance) is what this template provides.
+formats: 1
+project:
+  id: 01ARZ3NDEKTSV4RRFFQ69G5FAV # placeholder ULID — regenerated at project creation (PS-014)
+  name: "My Web App"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+template: { name: web-app, version: 1.0.0 }
+policies:
+  dial: cruise
+  sync: { fetch_minutes: 5, push_on_landing: true }
+  pr_per_stream: false
+  mismatch: { ui: warn, ci: refuse }
+contract:
+  components:
+    web:
+      paths: ["app/**", "db/**"]
+      commands:
+        dev: ["pnpm", "dev"]
+        test: ["pnpm", "test"]
+        lint: ["pnpm", "lint"]
+        seed: ["pnpm", "db:seed"]
+        migrate: ["pnpm", "db:migrate"]
+        build: ["pnpm", "build"]
+      preview:
+        url: "http://localhost:{port}"
+        ready: { path: "/", status: 200 }
+      ordered:
+        - { name: migrations, paths: ["drizzle/**"], command: migrate }
+      safe: [test, lint]
+  deploy:
+    production:
+      component: web
+      command: ["vercel", "deploy", "--prod"]
+      auth:
+        secrets: [VERCEL_TOKEN]
+        connect: vercel-login
+environments:
+  local: { vars: { DATABASE_URL: "file:./local.db" } }
+agents:
+  default: claude-code
+  roles: {}
+mcp: []

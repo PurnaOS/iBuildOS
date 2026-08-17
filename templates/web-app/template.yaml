@@ -1,0 +1,52 @@
+# iBuildOS starter template manifest — FORMATS.md §13.
+#
+# NOTE on shape: FORMATS.md §13 lists `contract: <§7 contract section>` and a
+# separate top-level `deploy: <targets with auth declarations>`. §7's own
+# `ibuildos.yaml` example nests `deploy` *inside* `contract`. Those two reads
+# don't reconcile for `contract`+`deploy` placement, and
+# `packages/schemas/src/template-manifest.ts` (`TemplateManifestSchema`) does
+# not exist yet in this checkout to disambiguate (searched; confirmed
+# absent). This file takes the literal §13 reading: `contract.components` for
+# the command set (mirroring §7's `contract.components` shape exactly) and a
+# top-level `deploy` map. Flag for whoever lands `TemplateManifestSchema`.
+formats: 1
+name: web-app
+version: 1.0.0
+engine: ">=1.0.0 <2.0.0"
+description: >-
+  Next.js + TypeScript + Tailwind + SQLite (Drizzle) starter. A working
+  homepage and API route read from SQLite via Drizzle; db:migrate/db:seed
+  exercise real schema migration and seed data (TP-002).
+contract:
+  components:
+    web:
+      paths: ["app/**", "db/**"]
+      commands:
+        dev: ["pnpm", "dev"]
+        test: ["pnpm", "test"]
+        lint: ["pnpm", "lint"]
+        seed: ["pnpm", "db:seed"]
+        migrate: ["pnpm", "db:migrate"]
+        build: ["pnpm", "build"]
+      preview:
+        url: "http://localhost:{port}"
+        ready: { path: "/", status: 200 }
+      ordered:
+        - { name: migrations, paths: ["drizzle/**"], command: migrate }
+      safe: [test, lint]
+profile: ibuildos-default@1.0.0
+environments:
+  local:
+    vars:
+      DATABASE_URL: "file:./local.db"
+deploy:
+  production:
+    component: web
+    command: ["vercel", "deploy", "--prod"]
+    auth:
+      secrets: [VERCEL_TOKEN]
+      connect: vercel-login
+seed_note: >-
+  `pnpm db:migrate` applies the Drizzle migration in drizzle/ (creates the
+  `tasks` table); `pnpm db:seed` then inserts 3 example tasks into the local
+  SQLite database at DATABASE_URL (default file:./local.db).
