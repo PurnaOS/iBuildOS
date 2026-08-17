@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BuildSection } from "./BuildSection.js";
@@ -131,6 +131,26 @@ describe("BuildSection", () => {
     expect(within(log).getByText(/Use the existing date utils/)).toBeInTheDocument();
 
     assertNoBannedVocabulary();
+  });
+
+  it("keeps a build's detail view live while it's open, not just the list (BD-010)", async () => {
+    const user = userEvent.setup();
+    renderBuild("seed-equipment-inspections");
+
+    // Opening the detail view unmounts BuildListView — the subscription must
+    // not have lived there, or it would have torn down right here.
+    await user.click(await screen.findByText("Offline inspection capture"));
+    const log = await screen.findByRole("log", { name: "Recent activity" });
+    expect(within(log).queryByText(/Ship it/)).not.toBeInTheDocument();
+
+    // Mutate the backend directly (bypassing the mounted component's own
+    // mutations entirely) to prove the update arrives through the live
+    // subscription, not a side effect of something this view did itself.
+    act(() => {
+      fake.backend.streams.steer("seed-stream-offline-capture", "Ship it");
+    });
+
+    expect(await within(log).findByText(/Ship it/)).toBeInTheDocument();
   });
 
   it("shows remediation actions on a stopped build and retry resumes it (BD-013)", async () => {

@@ -83,6 +83,20 @@ describe("StreamsBackend", () => {
     expect(backend.listDialWaived(EQUIPMENT_PROJECT)[0]!.reviewed).toBe(true);
   });
 
+  it("only ever carries a question while waiting on one — an invariant, not a schema refinement", () => {
+    // The router safeParses handler output and turns any mismatch into an
+    // opaque "unexpected shape" IPC error, so this invariant is asserted
+    // here rather than as a StreamSchema .refine() — a broken transition
+    // should fail a targeted test, not surface as a broken screen.
+    for (const stream of backend.listStreams(EQUIPMENT_PROJECT)) {
+      expect(stream.status === "waiting_question").toBe(stream.question !== undefined);
+    }
+
+    const answered = backend.answerQuestion("seed-stream-report-export", "q-sync-conflict", "Ask the user");
+    expect(answered.status).not.toBe("waiting_question");
+    expect(answered.question).toBeUndefined();
+  });
+
   it("answerQuestion resumes a waiting build only for its current question (BD-012)", () => {
     const streamId = "seed-stream-report-export";
     expect(backend.getStream(streamId)!.status).toBe("waiting_question");

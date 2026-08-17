@@ -7,18 +7,20 @@ const buildKey = (id: string) => ["build", id] as const;
 const dialKey = (projectId: string) => ["build-dial", projectId] as const;
 const dialWaivedKey = (projectId: string) => ["build-dial-waived", projectId] as const;
 
-/** DESIGN-CHARTER §2's Build section (product sidebar): the live list of
- * builds for a project, kept current via the streams.events subscription —
- * mirrors useActivityFeed's subscribe-and-merge pattern (../hooks/
- * useActivity.ts), but merges whole-entity updates into a list rather than
- * prepending log lines, and also seeds each build's own ["build", id] cache
- * entry so opening its detail view never shows a stale snapshot. */
-export function useBuilds(projectId: string) {
+/** DESIGN-CHARTER §2's Build section (product sidebar): keeps every build's
+ * cache entry current via the streams.events subscription — mirrors
+ * useActivityFeed's subscribe-and-merge pattern (../hooks/useActivity.ts),
+ * but merges whole-entity updates into the list and detail caches rather
+ * than prepending log lines. Call this once, from ./BuildSection.tsx itself
+ * (not from the list or detail view individually) — BuildSection shows list
+ * *or* detail, never both, so a subscription owned by either view would tear
+ * down its effect the moment the other one mounts, freezing BD-010's "live
+ * stream visibility" on exactly the screen it's supposed to animate. Also
+ * invalidates the dial-waived query (D-115) whenever a build finishes, so
+ * ./DialWaivedPanel.tsx picks up records the `auto` dial waives without a
+ * manual refresh. */
+export function useStreamEvents(projectId: string): void {
   const queryClient = useQueryClient();
-  const query = useQuery({
-    queryKey: buildsKey(projectId),
-    queryFn: async () => (await window.ibuildos.streams.list({ projectId })).streams,
-  });
 
   useEffect(() => {
     const unsubscribe = window.ibuildos.streams.subscribe({ projectId }, (stream) => {
@@ -31,14 +33,27 @@ export function useBuilds(projectId: string) {
         return next;
       });
       queryClient.setQueryData<Stream>(buildKey(stream.id), stream);
+      if (stream.status === "done") {
+        void queryClient.invalidateQueries({ queryKey: dialWaivedKey(projectId) });
+      }
     });
     return unsubscribe;
   }, [projectId, queryClient]);
-
-  return query;
 }
 
-/** A single build's detail (BD-010: stage, status, progress, question). */
+/** The live list of builds for a project (BD-010/PS-008) — pair with
+ * useStreamEvents(projectId), called once from ./BuildSection.tsx, to keep
+ * it current. */
+export function useBuilds(projectId: string) {
+  return useQuery({
+    queryKey: buildsKey(projectId),
+    queryFn: async () => (await window.ibuildos.streams.list({ projectId })).streams,
+  });
+}
+
+/** A single build's detail (BD-010: stage, status, progress, question) —
+ * also kept current by useStreamEvents(projectId), not a subscription of its
+ * own. */
 export function useBuild(id: string | undefined) {
   return useQuery({
     queryKey: buildKey(id ?? ""),

@@ -1,5 +1,6 @@
 import type { JSX } from "react";
 import {
+  AlertCircle,
   Ban,
   CheckCircle2,
   Clock,
@@ -32,7 +33,7 @@ const STATUS_ICON: Record<StreamStatus, typeof Clock> = {
   review: CheckCircle2,
   superseded: Shuffle,
   aborted: Ban,
-  failed: HelpCircle,
+  failed: AlertCircle,
   done: CheckCircle2,
 };
 
