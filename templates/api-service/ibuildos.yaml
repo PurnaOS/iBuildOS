@@ -9,7 +9,7 @@ template: { name: api-service, version: 1.0.0 }   # TP-007 provenance
 contract:
   components:
     api:
-      paths: ["src/**", "scripts/**", "drizzle/**"]
+      paths: ["src/**", "scripts/**", "test/**", "drizzle/**"]
       commands:
         dev:     ["pnpm", "dev"]
         test:    ["pnpm", "test"]
