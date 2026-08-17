@@ -1,0 +1,11 @@
+# Deliberately kept valid — this fixture is only about proving template.yaml
+# schema-failure detection is isolated from the (independent) ibuildos.yaml
+# check, per guarantee.ts's design: each manifest gets its own StepResult.
+formats: 1
+project:
+  id: 01J9ZTF8KH8P5XG4V6N2Q7R3S4
+  name: "Synthetic Fixture (bad manifest)"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+template: { name: synthetic-fixture-bad-manifest, version: 1.0.0 }

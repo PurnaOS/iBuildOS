@@ -1,0 +1,25 @@
+formats: 1
+project:
+  id: 01J9ZTF8KH8P5XG4V6N2Q7R3S1
+  name: "Synthetic Fixture (good)"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+template: { name: synthetic-fixture-good, version: 1.0.0 }
+contract:
+  components:
+    app:
+      paths: ["**"]
+      commands:
+        lint: ["pnpm", "run", "lint"]
+        build: ["pnpm", "run", "build"]
+        migrate: ["pnpm", "run", "migrate"]
+        seed: ["pnpm", "run", "seed"]
+        test: ["pnpm", "run", "test"]
+        dev: ["pnpm", "run", "dev"]
+      preview:
+        url: "http://localhost:4319"
+        ready: { path: "/", status: 200 }
+      safe: [lint, test]
+  deploy: {}
+environments: {}

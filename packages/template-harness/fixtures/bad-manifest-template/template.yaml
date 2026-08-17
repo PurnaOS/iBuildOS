@@ -1,0 +1,14 @@
+# Deliberately broken counter-example: missing the required `engine` field
+# (TemplateManifestSchema — VG-012 semver pin, no default), so
+# TemplateManifestSchema.safeParse fails. Everything else is otherwise
+# well-formed, isolating exactly one defect so the harness's manifest step
+# reports a schema violation instead of e.g. a YAML parse error.
+formats: 1
+name: synthetic-fixture-bad-manifest
+version: 1.0.0
+contract:
+  components:
+    app:
+      commands:
+        build: ["node", "-e", "process.exit(0)"]
+profile: "ibuildos-default@1.0.0"
