@@ -87,6 +87,18 @@ const api: IbuildosApi = {
       subscribe: (params, onEvent) => subscribe("verification.updates", params, onEvent),
     },
   },
+  streams: {
+    list: (input) => call("streams.list", input),
+    get: (input) => call("streams.get", input),
+    getDial: (input) => call("streams.getDial", input),
+    setDial: (input) => call("streams.setDial", input),
+    answerQuestion: (input) => call("streams.answerQuestion", input),
+    steer: (input) => call("streams.steer", input),
+    remediate: (input) => call("streams.remediate", input),
+    listDialWaived: (input) => call("streams.listDialWaived", input),
+    markDialWaivedReviewed: (input) => call("streams.markDialWaivedReviewed", input),
+    subscribe: (params, onEvent) => subscribe("streams.events", params, onEvent),
+  },
 };
 
 contextBridge.exposeInMainWorld("ibuildos", api);

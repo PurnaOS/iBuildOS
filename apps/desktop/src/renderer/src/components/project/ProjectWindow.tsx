@@ -8,6 +8,7 @@ import { ProductOverview } from "./ProductOverview.js";
 import { EngineeringOverview } from "./EngineeringOverview.js";
 import { InsightsSection } from "./insights/InsightsSection.js";
 import { VerificationSection } from "../verification/VerificationSection.js";
+import { BuildSection } from "../builds/BuildSection.js";
 import { useOpenProject } from "../../hooks/useProjects.js";
 import type { Mode } from "../../lib/nav.js";
 
@@ -58,10 +59,12 @@ export function ProjectWindow({ projectId, mode, onModeChange, onBack }: Project
           ) : section === "quality" ? (
             // Verification work package's mount point: preview pane, test
             // results, acceptance checklist, finish & combine (PV/TX/RV,
-            // IG-003). Deliberately not under "build" — that section's
-            // stream grid/watch is the sibling "streams" work package's
-            // territory this round; see docs/spec/DESIGN-CHARTER.md §2.
+            // IG-003). Deliberately not under "build" — that's the sibling
+            // "streams" work package's territory; see
+            // docs/spec/DESIGN-CHARTER.md §2.
             <VerificationSection />
+          ) : section === "build" && mode === "product" ? (
+            <BuildSection projectId={project.id} />
           ) : (
             <StubSection title={sectionTitle(section)} />
           )}

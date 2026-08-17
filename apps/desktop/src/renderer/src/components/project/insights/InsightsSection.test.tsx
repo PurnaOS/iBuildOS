@@ -51,7 +51,6 @@ beforeEach(() => {
 
 afterEach(() => {
   fake.backend.dispose();
-  fake.insightsBackend.dispose();
 });
 
 function renderInsights(projectId: string) {

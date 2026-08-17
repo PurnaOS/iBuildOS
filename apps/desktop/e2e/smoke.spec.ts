@@ -101,3 +101,38 @@ test("Product-mode verification walkthrough: run tests, accept the story, and co
     await app.close();
   }
 });
+
+// The streams/dial work package's Product-mode surface (DESIGN-CHARTER §2's
+// "Build" sidebar section): list -> detail, the autonomy dial (BD-004), and
+// steering (BD-008) — over the same real IPC path as the tests above, not the
+// Vitest-only renderer fake.
+test("Build section shows a project's builds and lets you steer one", async () => {
+  const app = await electron.launch({ args: [mainEntry] });
+  try {
+    const window = await app.firstWindow();
+    await window.waitForLoadState("domcontentloaded");
+
+    await window.getByText("Equipment Inspections").click();
+    await expect(window.getByText("Activity")).toBeVisible();
+
+    await window.getByRole("button", { name: "Build" }).click();
+    await expect(window.getByText("Offline inspection capture")).toBeVisible();
+    await expect(window.getByText("Waiting on your answer", { exact: true })).toBeVisible();
+
+    await window.getByText("Offline inspection capture").click();
+    const dial = window.getByRole("tablist", { name: "Autonomy dial" });
+    await expect(dial).toBeVisible();
+
+    const autoTab = dial.getByRole("tab", { name: "Auto" });
+    await autoTab.click();
+    await expect(autoTab).toHaveAttribute("aria-selected", "true");
+
+    await window.getByLabel("Send an instruction").fill("Use the existing date utils");
+    await window.getByRole("button", { name: "Send" }).click();
+    await expect(window.getByRole("log", { name: "Recent activity" })).toContainText(
+      "Use the existing date utils",
+    );
+  } finally {
+    await app.close();
+  }
+});

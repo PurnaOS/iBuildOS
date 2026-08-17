@@ -98,6 +98,18 @@ const handlers = {
   }),
   "insights.my-queue": ({ projectId }) => ({ projectId, personName: "You", items: [] }),
   "insights.team-notes": ({ projectId }) => ({ projectId, notes: [] }),
+  // "streams" domain (see ./contract/streams.ts) — this file only exercises
+  // generic router behavior, so stubs are enough; real coverage is
+  // src/main/backend/streams.test.ts and src/main/ipc/streams.test.ts.
+  "streams.list": () => ({ streams: [] }),
+  "streams.get": () => ({ stream: null }),
+  "streams.getDial": () => ({ dial: "cruise" }),
+  "streams.setDial": ({ dial }) => ({ dial }),
+  "streams.answerQuestion": () => ({ stream: sampleStream() }),
+  "streams.steer": () => ({ stream: sampleStream() }),
+  "streams.remediate": () => ({ stream: sampleStream() }),
+  "streams.listDialWaived": () => ({ items: [] }),
+  "streams.markDialWaivedReviewed": () => ({ item: sampleDialWaivedRecord() }),
 } satisfies Partial<RequestHandlers> as unknown as RequestHandlers;
 
 function sampleProject() {
@@ -109,6 +121,35 @@ function sampleProject() {
     activeBuilds: 0,
     pendingApprovals: 0,
     checksStatus: "ready" as const,
+  };
+}
+
+function sampleStream() {
+  return {
+    id: "known-stream",
+    projectId: "known",
+    storyName: "Sample story",
+    status: "running" as const,
+    stage: "implement" as const,
+    progress: { tasksDone: 1, tasksTotal: 3 },
+    testsStatus: "passing" as const,
+    summary: "Sample summary",
+    notes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function sampleDialWaivedRecord() {
+  return {
+    id: "known-waived",
+    streamId: "known-stream",
+    projectId: "known",
+    storyName: "Sample story",
+    kind: "acceptance" as const,
+    mode: "dial-waived" as const,
+    waivedAt: new Date().toISOString(),
+    reviewed: true,
   };
 }
 
@@ -154,6 +195,7 @@ describe("registerIpcRouter — subscriptions", () => {
         push = emit;
         return vi.fn();
       },
+      "streams.events": () => vi.fn(),
     } satisfies Partial<ChannelSources> as unknown as ChannelSources;
     registerIpcRouter(ipcMain, handlers, sources);
 
@@ -182,6 +224,7 @@ describe("registerIpcRouter — subscriptions", () => {
     const stop = vi.fn();
     const sources = {
       "activity.events": () => stop,
+      "streams.events": () => vi.fn(),
     } as unknown as ChannelSources;
     registerIpcRouter(ipcMain, handlers, sources);
 
@@ -198,6 +241,7 @@ describe("registerIpcRouter — subscriptions", () => {
     let calls = 0;
     const sources = {
       "activity.events": () => (calls++ === 0 ? stopA : stopB),
+      "streams.events": () => vi.fn(),
     } as unknown as ChannelSources;
     const router = registerIpcRouter(ipcMain, handlers, sources);
 

@@ -4,6 +4,7 @@ import { templatesRequests } from "./contract/templates.js";
 import { attentionRequests, attentionChannels } from "./contract/attention.js";
 import { insightsRequests } from "./contract/insights.js";
 import { verificationRequests, verificationChannels } from "./contract/verification.js";
+import { streamsRequests, streamsChannels } from "./contract/streams.js";
 
 export {
   REQUEST_CHANNEL,
@@ -21,10 +22,10 @@ export {
 // src/shared/ipc/router.ts turns it into a runtime router, on both ends.
 //
 // Each domain owns its own slice file under ./contract/ (projects.ts,
-// templates.ts, attention.ts today — all the "core" domain; future streams.ts
-// and insights.ts slices spread in the same way) so a work package adding a
-// domain never edits another domain's slice body, only adds a file and a
-// spread line here.
+// templates.ts, attention.ts: the "core" domain; streams.ts: the "streams"
+// domain; future insights.ts slices spread in the same way) so a work
+// package adding a domain never edits another domain's slice body, only adds
+// a file and a spread line here.
 
 export const requests = {
   ...projectsRequests,
@@ -32,6 +33,7 @@ export const requests = {
   ...attentionRequests,
   ...insightsRequests,
   ...verificationRequests,
+  ...streamsRequests,
 } as const;
 
 export type RequestName = keyof typeof requests;
@@ -41,6 +43,7 @@ export type RequestOutput<K extends RequestName> = z.infer<(typeof requests)[K][
 export const channels = {
   ...attentionChannels,
   ...verificationChannels,
+  ...streamsChannels,
 } as const;
 
 export type ChannelName = keyof typeof channels;
