@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, shell } from "electron";
-import { InMemoryBackend } from "./backend.js";
+import { Backend } from "./backend/index.js";
 import { createIpcRouter } from "./ipc.js";
 
 // T-001: TS core (here: just app lifecycle + the IPC router, M4 scope) runs in
@@ -10,7 +10,7 @@ import { createIpcRouter } from "./ipc.js";
 
 const dirname = fileURLToPath(new URL(".", import.meta.url));
 
-const backend = new InMemoryBackend();
+const backend = new Backend();
 const router = createIpcRouter(backend);
 
 function createWindow(): void {

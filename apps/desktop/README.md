@@ -10,10 +10,12 @@ shell per `docs/spec/DESIGN-CHARTER.md`'s navigation map (Home <-> Project
 window, Product/Engineering mode switch, ⌘K palette, ⌘J attention queue, ⌘L
 chat panel skeleton).
 
-Everything is backed by an **in-memory fake** (`src/main/backend.ts`) — no
-real git/filesystem/ACP calls. `packages/engine` has no build step yet and is
-not imported here; wiring the real engine, ACP layer, and previews into this
-shell is later milestone work (`docs/spec/EXECUTION-PLAN.md` M4+).
+Everything is backed by an **in-memory fake** (`src/main/backend/`, one file
+per domain — `core.ts` today, `streams.ts`/`insights.ts` placeholders for
+later, composed by `index.ts`) — no real git/filesystem/ACP calls.
+`packages/engine` has no build step yet and is not imported here; wiring the
+real engine, ACP layer, and previews into this shell is later milestone work
+(`docs/spec/EXECUTION-PLAN.md` M4+).
 
 ## Layout
 
@@ -70,6 +72,6 @@ otherwise, so promoting it to a real second window later is additive.
   "Downloading Electron binary..." and takes a few extra seconds; every run
   after that is instant. This also means `pnpm typecheck` and `pnpm test`
   never trigger it (no Vitest test imports `electron`, by design —
-  `src/main/backend.ts` and `src/shared/ipc/router.ts` are Electron-free —
+  `src/main/backend/` and `src/shared/ipc/router.ts` are Electron-free —
   and turbo's `typecheck`/`test` tasks don't run this package's own `build`),
   so it costs nothing on CI's ubuntu/macos/windows `typecheck`+`test` jobs.

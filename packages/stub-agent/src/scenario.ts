@@ -12,15 +12,36 @@ import { z } from "zod";
 // is wired in.
 
 export const ScenarioUpdateSchema = z.object({
-  kind: z.enum(["message_chunk", "thought_chunk", "tool_call", "plan"]),
+  kind: z.enum(["message_chunk", "thought_chunk", "tool_call", "plan", "permission_request"]),
   data: z.unknown(),
 });
+
+// The `data` convention for a `permission_request` update: the tool call the
+// agent wants permission for, and the option set the client answers with.
+// Parsed on demand at replay time (agent.ts) rather than folded into
+// ScenarioUpdateSchema's `data: unknown()` — that stays deliberately loose
+// for the other kinds, but a malformed permission_request fixture should
+// fail loudly (a JSON-RPC error) instead of shipping undefined fields on
+// the wire to a real client.
+export const PermissionRequestDataSchema = z.object({
+  toolCall: z.unknown(),
+  options: z.array(z.object({ id: z.string(), label: z.string() })).min(1),
+});
+
+export type PermissionRequestData = z.infer<typeof PermissionRequestDataSchema>;
 
 export const ScenarioSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   updates: z.array(ScenarioUpdateSchema),
   stopReason: z.enum(["end_turn", "cancelled", "max_turn_requests"]).default("end_turn"),
+  /** Opt-in: whether this scenario answers `session/load` with a replayed
+   * transcript. Reflected back honestly in `initialize`'s
+   * `agentCapabilities.loadSession`, so a well-behaved client won't even
+   * try `session/load` against a scenario that doesn't support it. A
+   * scenario that leaves this unset gets the same JSON-RPC error an
+   * unhandled method produces. */
+  supportsLoad: z.boolean().default(false),
 });
 
 export type Scenario = z.infer<typeof ScenarioSchema>;

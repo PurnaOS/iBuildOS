@@ -6,12 +6,16 @@ import {
   type ChecksStatus,
   type CreateProjectInput,
   type Project,
-} from "../shared/domain.js";
+} from "../../shared/domain.js";
 
-// The in-memory fake standing in for packages/engine + real git (out of scope
-// for this scaffold — see apps/desktop/README.md). Every IPC handler in
-// src/main/ipc.ts is backed by this one object; nothing here touches the
-// filesystem or a child process.
+// The "core" domain (projects/templates/attention/activity) — the in-memory
+// fake standing in for packages/engine + real git (out of scope for this
+// scaffold — see apps/desktop/README.md). Formerly the whole of
+// src/main/backend.ts (as `InMemoryBackend`); split out so the streams and
+// insights domains (see ../backend/streams.ts, ../backend/insights.ts) each
+// get their own file body. Composed into one object by ../backend/index.ts;
+// every IPC handler for this domain (src/main/ipc/core.ts) is backed by this
+// one class, and nothing here touches the filesystem or a child process.
 
 type ActivityListener = { projectId: string | undefined; emit: (event: ActivityEvent) => void };
 
@@ -37,7 +41,7 @@ const SCRIPTED_BEATS: readonly ScriptedBeat[] = [
 
 let beatCursor = 0;
 
-export class InMemoryBackend {
+export class CoreBackend {
   private readonly projects = new Map<string, Project>();
   private readonly log: ActivityEvent[] = [];
   private readonly listeners = new Set<ActivityListener>();

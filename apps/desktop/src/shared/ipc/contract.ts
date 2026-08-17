@@ -1,10 +1,7 @@
 import { z } from "zod";
-import {
-  ActivityEventSchema,
-  CreateProjectInputSchema,
-  ProjectSchema,
-  TemplateSchema,
-} from "../domain.js";
+import { projectsRequests } from "./contract/projects.js";
+import { templatesRequests } from "./contract/templates.js";
+import { attentionRequests, attentionChannels } from "./contract/attention.js";
 
 export {
   REQUEST_CHANNEL,
@@ -20,48 +17,25 @@ export {
 // channels (query or mutation — the distinction doesn't change the wire shape)
 // and one map of subscription channels. Everything here is data (zod schemas);
 // src/shared/ipc/router.ts turns it into a runtime router, on both ends.
-
-const NoInput = z.undefined();
+//
+// Each domain owns its own slice file under ./contract/ (projects.ts,
+// templates.ts, attention.ts today — all the "core" domain; future streams.ts
+// and insights.ts slices spread in the same way) so a work package adding a
+// domain never edits another domain's slice body, only adds a file and a
+// spread line here.
 
 export const requests = {
-  "projects.list": {
-    input: NoInput,
-    output: z.object({ projects: z.array(ProjectSchema) }),
-  },
-  "projects.get": {
-    input: z.object({ id: z.string() }),
-    output: z.object({ project: ProjectSchema.nullable() }),
-  },
-  "projects.create": {
-    input: CreateProjectInputSchema,
-    output: z.object({ project: ProjectSchema }),
-  },
-  "projects.open": {
-    input: z.object({ id: z.string() }),
-    output: z.object({ project: ProjectSchema }),
-  },
-  "templates.list": {
-    input: NoInput,
-    output: z.object({ templates: z.array(TemplateSchema) }),
-  },
-  "attention.list": {
-    input: z.object({ projectId: z.string() }).optional(),
-    output: z.object({ items: z.array(ActivityEventSchema) }),
-  },
+  ...projectsRequests,
+  ...templatesRequests,
+  ...attentionRequests,
 } as const;
 
 export type RequestName = keyof typeof requests;
 export type RequestInput<K extends RequestName> = z.infer<(typeof requests)[K]["input"]>;
 export type RequestOutput<K extends RequestName> = z.infer<(typeof requests)[K]["output"]>;
 
-// Subscription channels: renderer subscribes with `params`, main pushes zero or
-// more `event` payloads until the renderer unsubscribes (or its WebContents is
-// destroyed — the router's job to clean that up, see router.ts).
 export const channels = {
-  "activity.events": {
-    params: z.object({ projectId: z.string() }).optional(),
-    event: ActivityEventSchema,
-  },
+  ...attentionChannels,
 } as const;
 
 export type ChannelName = keyof typeof channels;

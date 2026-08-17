@@ -1,24 +1,23 @@
 import { ipcMain } from "electron";
 import { registerIpcRouter, type IpcMainLike, type IpcRouter } from "../shared/ipc/router.js";
-import { TEMPLATES } from "../shared/domain.js";
-import { InMemoryBackend } from "./backend.js";
+import type { Backend } from "./backend/index.js";
+import { coreHandlers, coreSources } from "./ipc/core.js";
 
-// Wires T-008's generic router to this scaffold's in-memory fake. `ipcMain`
-// satisfies IpcMainLike structurally — the router itself has no Electron
-// import, which is what lets router.test.ts exercise it without Electron.
-export function createIpcRouter(backend: InMemoryBackend): IpcRouter {
+// Wires T-008's generic router to this scaffold's per-domain backend facade
+// (./backend/index.ts). `ipcMain` satisfies IpcMainLike structurally — the
+// router itself has no Electron import, which is what lets router.test.ts
+// exercise it without Electron. The handler/source maps are composed from
+// each domain's own slice (./ipc/core.ts today; future ./ipc/streams.ts,
+// ./ipc/insights.ts) so adding a domain is a new file plus a spread line
+// here, not an edit to another domain's slice.
+export function createIpcRouter(backend: Backend): IpcRouter {
   return registerIpcRouter(
     ipcMain as unknown as IpcMainLike,
     {
-      "projects.list": () => ({ projects: backend.listProjects() }),
-      "projects.get": ({ id }) => ({ project: backend.getProject(id) }),
-      "projects.create": (input) => ({ project: backend.createProject(input) }),
-      "projects.open": ({ id }) => ({ project: backend.openProject(id) }),
-      "templates.list": () => ({ templates: [...TEMPLATES] }),
-      "attention.list": (input) => ({ items: backend.listAttention(input?.projectId) }),
+      ...coreHandlers(backend.core),
     },
     {
-      "activity.events": (params, emit) => backend.subscribeActivity(params?.projectId, emit),
+      ...coreSources(backend.core),
     },
   );
 }

@@ -4,7 +4,7 @@ import { z } from "zod";
 // covers OKF artifact frontmatter/type-profile/config shapes per FORMATS.md;
 // "Project" as a home-screen list entry is a shell concept, SPEC.md §A "PS").
 //
-// This scaffold backs everything with an in-memory fake (see src/main/backend.ts)
+// This scaffold backs everything with an in-memory fake (see src/main/backend/)
 // — no real git/filesystem/engine calls (packages/engine has no build step yet
 // and is out of scope here per the work package brief).
 

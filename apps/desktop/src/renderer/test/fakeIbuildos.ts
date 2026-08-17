@@ -1,14 +1,14 @@
-import { InMemoryBackend } from "../../main/backend.js";
+import { CoreBackend } from "../../main/backend/core.js";
 import { TEMPLATES } from "../../shared/domain.js";
 import type { IbuildosApi } from "../../shared/ipc/client-types.js";
 
 /** A `window.ibuildos` implementation backed by the *real* main-process
- * InMemoryBackend (it has no Electron import, so it's safe to reuse here) —
+ * CoreBackend (it has no Electron import, so it's safe to reuse here) —
  * renderer tests exercise real create/list/subscribe logic, not a second,
  * possibly-drifted mock of it. The actual IPC transport (router.ts) has its
  * own coverage in src/shared/ipc/router.test.ts. */
-export function createFakeIbuildos(): { api: IbuildosApi; backend: InMemoryBackend } {
-  const backend = new InMemoryBackend();
+export function createFakeIbuildos(): { api: IbuildosApi; backend: CoreBackend } {
+  const backend = new CoreBackend();
   const api: IbuildosApi = {
     projects: {
       list: async () => ({ projects: backend.listProjects() }),

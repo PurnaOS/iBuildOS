@@ -37,7 +37,7 @@ test("Home renders, and the create-project flow lands on the new project", async
       "true",
     );
 
-    // A scripted PS-008 beat fires every 4s (see src/main/backend.ts) and must
+    // A scripted PS-008 beat fires every 4s (see src/main/backend/core.ts) and must
     // arrive over the real subscribe -> ipcRenderer.send -> ipcMain.on ->
     // sender.send -> ipcRenderer.on path for the Activity card to update.
     await expect(window.getByText("Nothing has happened yet.")).toBeHidden({

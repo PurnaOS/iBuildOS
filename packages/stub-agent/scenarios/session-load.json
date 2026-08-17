@@ -1,0 +1,10 @@
+{
+  "name": "session-load",
+  "description": "Opts into session/load support: proves the stub can respond to a resumed session by re-emitting its transcript as session/update notifications before answering.",
+  "supportsLoad": true,
+  "updates": [
+    { "kind": "message_chunk", "data": { "text": "Resuming where we left off." } },
+    { "kind": "message_chunk", "data": { "text": "All caught up." } }
+  ],
+  "stopReason": "end_turn"
+}

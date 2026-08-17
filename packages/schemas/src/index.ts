@@ -6,3 +6,5 @@ export * from "./config.js";
 export * from "./findings.js";
 export * from "./flow.js";
 export * from "./rule-registry.js";
+export * from "./stream.js";
+export * from "./template-manifest.js";

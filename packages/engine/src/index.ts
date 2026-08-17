@@ -5,3 +5,5 @@ export * from "./baseline/index.js";
 export * from "./watch/index.js";
 export * from "./gates/index.js";
 export * from "./graph/index.js";
+export * from "./git/index.js";
+export * from "./secrets/index.js";

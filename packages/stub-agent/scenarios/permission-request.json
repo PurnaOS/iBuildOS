@@ -1,0 +1,20 @@
+{
+  "name": "permission-request",
+  "description": "A scripted turn that pauses mid-replay to ask the client for permission via an agent-initiated session/request_permission call, and only resumes emitting updates once the client answers.",
+  "updates": [
+    { "kind": "message_chunk", "data": { "text": "I'll need to run the test suite." } },
+    {
+      "kind": "permission_request",
+      "data": {
+        "toolCall": { "toolCallId": "tc-1", "title": "Run tests", "kind": "execute" },
+        "options": [
+          { "id": "allow", "label": "Allow" },
+          { "id": "reject", "label": "Reject" }
+        ]
+      }
+    },
+    { "kind": "tool_call", "data": { "toolCallId": "tc-1", "status": "completed" } },
+    { "kind": "message_chunk", "data": { "text": "Done." } }
+  ],
+  "stopReason": "end_turn"
+}

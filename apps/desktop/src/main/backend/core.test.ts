@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { InMemoryBackend } from "./backend.js";
+import { CoreBackend } from "./core.js";
 
-describe("InMemoryBackend", () => {
-  let backend: InMemoryBackend;
+describe("CoreBackend", () => {
+  let backend: CoreBackend;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    backend = new InMemoryBackend();
+    backend = new CoreBackend();
   });
 
   afterEach(() => {
