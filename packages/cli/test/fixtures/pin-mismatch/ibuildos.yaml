@@ -1,0 +1,11 @@
+formats: 1
+project:
+  id: 01J9XW4E7NQZ4T8KD2M5B3YHVB
+  name: "CLI Fixture — Pin Mismatch"
+engine: ">=0.1.0 <1.0.0"
+profile:
+  name: cli-fixture-profile
+  version: 9.9.9
+  path: docs/profile
+bundle:
+  root: docs

@@ -141,7 +141,24 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@24.13.3)(jsdom@25.0.1)
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@ibuildos/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@ibuildos/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      yaml:
+        specifier: ^2.6.1
+        version: 2.9.0
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.13.3)(jsdom@25.0.1)
 
   packages/engine:
     dependencies:
