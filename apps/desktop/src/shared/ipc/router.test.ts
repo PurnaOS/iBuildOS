@@ -50,7 +50,12 @@ function fakeEvent(senderId: number) {
   return { sender: { id: senderId, send: vi.fn() } } satisfies IpcEventLike;
 }
 
-const handlers: RequestHandlers = {
+// Cast rather than listing every domain's requests: this file exercises the
+// router's generic dispatch/validation/subscription machinery against a
+// representative few, not full contract coverage (each domain's own
+// handlers get exercised against the real backend in e.g.
+// ../../main/ipc/core.ts's and ../../main/ipc/verification.ts's own tests).
+const handlers = {
   "projects.list": () => ({ projects: [] }),
   "projects.get": ({ id }) => ({ project: id === "known" ? sampleProject() : null }),
   "projects.create": (input) => ({ project: { ...sampleProject(), name: input.name } }),
@@ -60,7 +65,7 @@ const handlers: RequestHandlers = {
   },
   "templates.list": () => ({ templates: [] }),
   "attention.list": () => ({ items: [] }),
-};
+} satisfies Partial<RequestHandlers> as unknown as RequestHandlers;
 
 function sampleProject() {
   return {
@@ -111,12 +116,12 @@ describe("registerIpcRouter — subscriptions", () => {
   it("streams events from the channel source to the subscribing sender", () => {
     const { ipcMain, fireOn } = fakeIpcMain();
     let push: ((event: ChannelEvent<"activity.events">) => void) | undefined;
-    const sources: ChannelSources = {
+    const sources = {
       "activity.events": (_params, emit) => {
         push = emit;
         return vi.fn();
       },
-    };
+    } satisfies Partial<ChannelSources> as unknown as ChannelSources;
     registerIpcRouter(ipcMain, handlers, sources);
 
     const event = fakeEvent(7);
@@ -142,9 +147,9 @@ describe("registerIpcRouter — subscriptions", () => {
   it("stops the source when unsubscribed", () => {
     const { ipcMain, fireOn } = fakeIpcMain();
     const stop = vi.fn();
-    const sources: ChannelSources = {
+    const sources = {
       "activity.events": () => stop,
-    };
+    } as unknown as ChannelSources;
     registerIpcRouter(ipcMain, handlers, sources);
 
     fireOn(SUBSCRIBE_CHANNEL, fakeEvent(1), "activity.events", "sub-1", undefined);
@@ -158,9 +163,9 @@ describe("registerIpcRouter — subscriptions", () => {
     const stopA = vi.fn();
     const stopB = vi.fn();
     let calls = 0;
-    const sources: ChannelSources = {
+    const sources = {
       "activity.events": () => (calls++ === 0 ? stopA : stopB),
-    };
+    } as unknown as ChannelSources;
     const router = registerIpcRouter(ipcMain, handlers, sources);
 
     const event = fakeEvent(42);

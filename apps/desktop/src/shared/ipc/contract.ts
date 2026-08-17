@@ -2,6 +2,7 @@ import { z } from "zod";
 import { projectsRequests } from "./contract/projects.js";
 import { templatesRequests } from "./contract/templates.js";
 import { attentionRequests, attentionChannels } from "./contract/attention.js";
+import { verificationRequests, verificationChannels } from "./contract/verification.js";
 
 export {
   REQUEST_CHANNEL,
@@ -28,6 +29,7 @@ export const requests = {
   ...projectsRequests,
   ...templatesRequests,
   ...attentionRequests,
+  ...verificationRequests,
 } as const;
 
 export type RequestName = keyof typeof requests;
@@ -36,6 +38,7 @@ export type RequestOutput<K extends RequestName> = z.infer<(typeof requests)[K][
 
 export const channels = {
   ...attentionChannels,
+  ...verificationChannels,
 } as const;
 
 export type ChannelName = keyof typeof channels;
