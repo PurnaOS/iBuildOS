@@ -1,0 +1,9 @@
+# CLI fixture gate compositions — same shape as docs/profile/gates.yaml,
+# trimmed to the rule families this bundle's minimal profile actually
+# exercises (no chain/*, evid/*, merge/*, contract/*, guidance/* rules are
+# wired by this CLI yet — see src/rules/checkers.ts's gap-list comment).
+formats: 1
+gates:
+  requirement-ready: [doc/*, id/*, link/*, state/vocabulary]
+  story-ready: [doc/*, id/*, link/*, state/*, doc/criteria-items]
+  well-formed: [doc/*, id/*, link/*, state/vocabulary, sec/committed-secret, docs/todo-marker]
