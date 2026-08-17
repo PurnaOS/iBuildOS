@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * DESIGN-CHARTER.md §1 tokens as CSS variables (shadcn/ui convention: HSL
+ * triplets consumed via hsl(var(--x)) in tailwind.config.js). Light is the
+ * default on :root; .dark overrides for the manual toggle, and a
+ * prefers-color-scheme block covers the system-default case before any
+ * manual choice is made (see ../hooks/useTheme.ts).
+ */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 12%;
+
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 12%;
+
+  --border: 240 6% 88%;
+  --ring: 243 75% 59%;
+
+  --accent: 243 75% 59%; /* #4f46e5 — DESIGN-CHARTER's decreed default accent */
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Semantic artifact-state buckets — never the only signal (icon + label pair always) */
+  --state-done: 142 71% 35%;
+  --state-active: 38 92% 45%;
+  --state-blocked: 0 72% 51%;
+  --state-ready: 217 91% 55%;
+  --state-draft: 240 4% 56%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: 240 10% 8%;
+    --foreground: 0 0% 95%;
+    --muted: 240 6% 14%;
+    --muted-foreground: 240 5% 64%;
+    --card: 240 8% 11%;
+    --card-foreground: 0 0% 95%;
+    --border: 240 6% 20%;
+    --ring: 239 84% 72%;
+    --accent: 239 84% 72%;
+    --accent-foreground: 240 10% 10%;
+    --destructive: 0 63% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --state-done: 142 65% 45%;
+    --state-active: 38 92% 55%;
+    --state-blocked: 0 70% 62%;
+    --state-ready: 217 91% 65%;
+    --state-draft: 240 5% 65%;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: 240 10% 8%;
+  --foreground: 0 0% 95%;
+  --muted: 240 6% 14%;
+  --muted-foreground: 240 5% 64%;
+  --card: 240 8% 11%;
+  --card-foreground: 0 0% 95%;
+  --border: 240 6% 20%;
+  --ring: 239 84% 72%;
+  --accent: 239 84% 72%;
+  --accent-foreground: 240 10% 10%;
+  --destructive: 0 63% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --state-done: 142 65% 45%;
+  --state-active: 38 92% 55%;
+  --state-blocked: 0 70% 62%;
+  --state-ready: 217 91% 65%;
+  --state-draft: 240 5% 65%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  /* Deliberately left at the default 16px root so Tailwind's rem-based 4px
+     spacing grid (DESIGN-CHARTER §1) stays a real 4px grid; the 13px compact
+     type size is applied to body/components instead, below. */
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: theme("fontFamily.sans");
+  font-size: 13px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

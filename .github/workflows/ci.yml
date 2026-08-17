@@ -10,11 +10,13 @@ jobs:
   test:
     # ubuntu × macos is the byte-identity guard (TECH-STACK.md T-013/S-5):
     # if the OKF store's round-trip fidelity or the rule engine's findings
-    # regress on one OS but not the other, this catches it. Windows joins
-    # once apps/desktop exists (S-4).
+    # regress on one OS but not the other, this catches it. windows-latest
+    # joined once apps/desktop landed (S-4) — T-006 calls out Windows
+    # long-path handling as its own risk, so it rides the same matrix as
+    # everything else rather than a separate job.
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
