@@ -48,7 +48,6 @@ beforeEach(() => {
 
 afterEach(() => {
   fake.backend.dispose();
-  fake.verification.dispose();
 });
 
 function renderSection() {
