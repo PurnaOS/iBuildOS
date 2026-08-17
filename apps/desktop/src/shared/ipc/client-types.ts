@@ -31,4 +31,28 @@ export interface IbuildosApi {
       onEvent: (event: ChannelEvent<"activity.events">) => void,
     ): () => void;
   };
+  streams: {
+    list(input: RequestInput<"streams.list">): Promise<RequestOutput<"streams.list">>;
+    get(input: RequestInput<"streams.get">): Promise<RequestOutput<"streams.get">>;
+    getDial(input: RequestInput<"streams.getDial">): Promise<RequestOutput<"streams.getDial">>;
+    setDial(input: RequestInput<"streams.setDial">): Promise<RequestOutput<"streams.setDial">>;
+    answerQuestion(
+      input: RequestInput<"streams.answerQuestion">,
+    ): Promise<RequestOutput<"streams.answerQuestion">>;
+    steer(input: RequestInput<"streams.steer">): Promise<RequestOutput<"streams.steer">>;
+    remediate(
+      input: RequestInput<"streams.remediate">,
+    ): Promise<RequestOutput<"streams.remediate">>;
+    listDialWaived(
+      input?: RequestInput<"streams.listDialWaived">,
+    ): Promise<RequestOutput<"streams.listDialWaived">>;
+    markDialWaivedReviewed(
+      input: RequestInput<"streams.markDialWaivedReviewed">,
+    ): Promise<RequestOutput<"streams.markDialWaivedReviewed">>;
+    /** Returns an unsubscribe function. */
+    subscribe(
+      params: ChannelParams<"streams.events">,
+      onEvent: (event: ChannelEvent<"streams.events">) => void,
+    ): () => void;
+  };
 }

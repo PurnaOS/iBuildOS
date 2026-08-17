@@ -6,6 +6,7 @@ import { Sidebar } from "../layout/Sidebar.js";
 import { StubSection } from "./StubSection.js";
 import { ProductOverview } from "./ProductOverview.js";
 import { EngineeringOverview } from "./EngineeringOverview.js";
+import { BuildSection } from "../builds/BuildSection.js";
 import { useOpenProject } from "../../hooks/useProjects.js";
 import type { Mode } from "../../lib/nav.js";
 
@@ -51,6 +52,8 @@ export function ProjectWindow({ projectId, mode, onModeChange, onBack }: Project
             ) : (
               <EngineeringOverview project={project} />
             )
+          ) : section === "build" && mode === "product" ? (
+            <BuildSection projectId={project.id} />
           ) : (
             <StubSection title={sectionTitle(section)} />
           )}
