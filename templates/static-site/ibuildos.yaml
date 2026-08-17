@@ -1,0 +1,35 @@
+formats: 1
+project:
+  id: 01J9ZS3KQW7VXH2M4P8T6YB5NC        # ULID placeholder — the app regenerates this once per real project (PS-014)
+  name: "New Static Site"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+template: { name: static-site, version: 1.0.0 }
+policies:
+  dial: cruise
+  sync: { fetch_minutes: 5, push_on_landing: true }
+  pr_per_stream: false
+  mismatch: { ui: warn, ci: refuse }
+contract:
+  components:
+    site:
+      paths: ["src/**", "public/**"]
+      commands:
+        dev:   ["pnpm", "dev"]
+        test:  ["pnpm", "test"]
+        lint:  ["pnpm", "lint"]
+        build: ["pnpm", "build"]
+      preview: { url: "http://localhost:{port}", ready: { path: "/", status: 200 } }
+      safe: [test, lint, build]
+  deploy:
+    production:
+      component: site
+      command: ["netlify", "deploy", "--prod", "--dir=dist"]
+      auth: { secrets: [NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID], connect: netlify-login }
+environments:
+  local: { vars: {}, secrets: [] }
+agents:
+  default: claude-code
+  roles: {}
+mcp: []
