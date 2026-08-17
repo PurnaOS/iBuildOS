@@ -56,6 +56,14 @@ const api: IbuildosApi = {
   activity: {
     subscribe: (params, onEvent) => subscribe("activity.events", params, onEvent),
   },
+  insights: {
+    progress: (input) => call("insights.progress", input),
+    quality: (input) => call("insights.quality", input),
+    workload: (input) => call("insights.workload", input),
+    adoption: (input) => call("insights.adoption", input),
+    myQueue: (input) => call("insights.my-queue", input),
+    teamNotes: (input) => call("insights.team-notes", input),
+  },
 };
 
 contextBridge.exposeInMainWorld("ibuildos", api);

@@ -47,3 +47,26 @@ test("Home renders, and the create-project flow lands on the new project", async
     await app.close();
   }
 });
+
+test("the Insights section renders dashboards and my queue over real IPC", async () => {
+  const app = await electron.launch({ args: [mainEntry] });
+  try {
+    const window = await app.firstWindow();
+    await window.waitForLoadState("domcontentloaded");
+
+    await window.getByText("Equipment Inspections").click();
+    await window.getByRole("button", { name: "Insights" }).click();
+
+    // Dashboards tab (default) — a real insights.progress/quality/workload
+    // round trip through contextBridge/ipcRenderer/ipcMain, not the
+    // renderer-only fake the Vitest suite uses.
+    await expect(window.getByRole("heading", { name: "Progress" })).toBeVisible();
+    await expect(window.getByRole("heading", { name: "Quality" })).toBeVisible();
+    await expect(window.getByRole("heading", { name: "Team workload" })).toBeVisible();
+
+    await window.getByRole("tab", { name: "My queue" }).click();
+    await expect(window.getByRole("heading", { name: /My queue/ })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});

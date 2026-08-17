@@ -60,6 +60,39 @@ const handlers: RequestHandlers = {
   },
   "templates.list": () => ({ templates: [] }),
   "attention.list": () => ({ items: [] }),
+  // Insights domain (src/main/ipc/insights.ts) — router-level tests only care
+  // that every declared request name has *some* handler wired up; the real
+  // logic is covered in src/main/backend/insights.test.ts and
+  // src/main/ipc/insights.test.ts.
+  "insights.progress": ({ projectId }) => ({
+    projectId,
+    requirements: { total: 0, built: 0, verified: 0, pending: 0 },
+    stories: { draft: 0, ready: 0, active: 0, done: 0 },
+    activeBuilds: 0,
+    releases: [],
+  }),
+  "insights.quality": ({ projectId }) => ({
+    projectId,
+    coveragePercent: 0,
+    checksPassing: 0,
+    checksTotal: 0,
+    findingsBySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+    suitesPassing: 0,
+    suitesTotal: 0,
+    flaggedUnreliable: 0,
+  }),
+  "insights.workload": ({ projectId }) => ({ projectId, people: [] }),
+  "insights.adoption": ({ projectId }) => ({
+    projectId,
+    isAdopted: false,
+    baselineTotal: 0,
+    remaining: 0,
+    adoptedScopePercent: 100,
+    backfillCompletePercent: 100,
+    burndown: [],
+  }),
+  "insights.my-queue": ({ projectId }) => ({ projectId, personName: "You", items: [] }),
+  "insights.team-notes": ({ projectId }) => ({ projectId, notes: [] }),
 };
 
 function sampleProject() {

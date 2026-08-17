@@ -2,6 +2,7 @@ import { z } from "zod";
 import { projectsRequests } from "./contract/projects.js";
 import { templatesRequests } from "./contract/templates.js";
 import { attentionRequests, attentionChannels } from "./contract/attention.js";
+import { insightsRequests } from "./contract/insights.js";
 
 export {
   REQUEST_CHANNEL,
@@ -28,6 +29,7 @@ export const requests = {
   ...projectsRequests,
   ...templatesRequests,
   ...attentionRequests,
+  ...insightsRequests,
 } as const;
 
 export type RequestName = keyof typeof requests;
