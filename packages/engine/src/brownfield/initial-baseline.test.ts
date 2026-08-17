@@ -106,8 +106,24 @@ describe("generateInitialBaseline", () => {
     const serialized = serializeBaseline(generated);
     const reloaded = loadBaseline(serialized);
 
-    expect(reloaded).toEqual(generated);
-    // idempotent: re-serializing the reloaded value reproduces the same bytes.
+    // generateInitialBaseline documents that its `entries` are in encounter order, not the
+    // canonical sort serializeBaseline applies on write — so this deliberately checks entry
+    // *content* order-independently (a set of rule/artifact/fp triples), rather than deep
+    // object equality against `generated`, which would only hold by coincidence of this
+    // fixture's encounter order already matching the canonical sort.
+    const entryKey = (e: { rule: string; artifact: string; fp: string }) =>
+      `${e.rule}\0${e.artifact}\0${e.fp}`;
+    expect(new Set(reloaded.entries.map(entryKey))).toEqual(new Set(generated.entries.map(entryKey)));
+    expect(reloaded.entries).toHaveLength(generated.entries.length);
+    expect(reloaded.formats).toBe(generated.formats);
+    expect(reloaded.engine).toBe(generated.engine);
+    expect(reloaded.profile).toBe(generated.profile);
+    expect(reloaded.generated).toBe(generated.generated);
+    expect(reloaded.scope_events).toEqual(generated.scope_events);
+
+    // idempotent: re-serializing the reloaded value reproduces the same bytes — this is what
+    // actually proves the round trip is lossless under serializeBaseline's canonical order,
+    // independent of what order generateInitialBaseline happened to emit entries in.
     expect(serializeBaseline(reloaded)).toBe(serialized);
   });
 

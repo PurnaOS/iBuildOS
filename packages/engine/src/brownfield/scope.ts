@@ -4,16 +4,20 @@ import { matchGlob } from "../rules/chain.js";
 // SPEC.md BF-005 (partial adoption): adoption is scopeable to paths/areas of the repo,
 // expanding over time; "the gate enforces strictly inside adopted scope and stays silent
 // outside." This module is the standalone path-scope filter that decision needs — a pure
-// partition function, not a new gate engine. It deliberately does not touch
-// `gates/evaluate.ts`: that module's `ExpandedRule.scope` (the `?scope=` modifier parsed off
-// a gate entry, e.g. `merge?scope=release`) is today informational only per its own `// TODO`
-// — real "filter `artifacts`/findings by scope" wiring is later work. What this module
-// provides is the piece that later wiring needs: given declared in-scope path globs and a
-// batch of findings (or anything else path-addressable), split them into in-scope (subject to
-// strict enforcement) vs out-of-scope (lenient/off) sets. A caller building a scoped gate
-// evaluation would run `evaluateGate` as today, then partition its output with this module,
-// treating `inScope` findings as blocking and `outOfScope` findings as informational/ignored —
-// or pre-filter `artifacts` before calling `evaluateGate`, per that module's own guidance.
+// partition function, not a new gate engine.
+//
+// This is a *different axis* from `gates/evaluate.ts`'s `?scope=` modifier (e.g.
+// `merge?scope=release`), which selects `stream | release | changed | all` — a run-context
+// selector (which artifacts are even under consideration this run), informational only today
+// per that module's own `// TODO`. BF-005 scope is a set of adopted-repo path globs (FORMATS
+// §8's `scope_events.added_paths`, e.g. `"src/legacy/**"`) — which paths the gate holds to
+// its standard at all, regardless of run context. The two may need to compose later (a
+// `changed`-scope merge gate that only enforces strictly within adopted paths), but that
+// composition is not this module's job: it deliberately does not touch `gates/evaluate.ts`.
+// The mechanical recipe for a caller wiring this in: run `evaluateGate` as today (optionally
+// pre-filtering `artifacts` by its own `?scope=` context first, per that module's guidance),
+// then partition the resulting findings with this module, treating `inScope` as blocking and
+// `outOfScope` as informational/ignored.
 //
 // Reuses `matchGlob` from `rules/chain.ts` (already exported from the package's public
 // surface via `index.ts` -> `rules/index.ts`) rather than pulling in a glob dependency or
