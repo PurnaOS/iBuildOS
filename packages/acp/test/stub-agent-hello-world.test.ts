@@ -92,4 +92,27 @@ describe("stub-agent hello-world (S-1 stub leg)", () => {
       expect(texts).toBe("Hello, world.");
     },
   );
+
+  it(
+    "AC-004: documents a second confirmed interop gap — session/cancel is a fire-and-forget " +
+      "notification per the real ACP schema, but stub-agent's agent.ts only checks its " +
+      "cancelled flag inside the request/response handler for a literal session/cancel " +
+      "*request*, so a real notification-shaped cancel silently no-ops against it",
+    async () => {
+      const worktree = makeTempDir("hello-cancel");
+      client = spawnStubAgent(worktree, "hello-world");
+
+      await client.initialize();
+      const session = await client.newSession(worktree);
+
+      const promptPromise = session.promptAndDrain("hello");
+      // Sent before awaiting the prompt turn at all — if cancellation were
+      // honored, this is about as favorable a timing as it gets.
+      await session.cancel();
+      const { response } = await promptPromise;
+
+      // Confirmed, not assumed: this stays "end_turn", never "cancelled".
+      expect(response.stopReason).toBe("end_turn");
+    },
+  );
 });

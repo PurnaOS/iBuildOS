@@ -114,10 +114,15 @@ export class AcpClient {
       builder.withMcpServer(server);
     }
     const active = await builder.start();
-    return new AcpSession(active, {
-      ...(this.opts.transcript ? { transcript: this.opts.transcript } : {}),
-      ...(this.secretRouter ? { secretRouter: this.secretRouter } : {}),
-    });
+    const conn = this.conn;
+    return new AcpSession(
+      active,
+      () => conn.agent.notify(acp.methods.agent.session.cancel, { sessionId: active.sessionId }),
+      {
+        ...(this.opts.transcript ? { transcript: this.opts.transcript } : {}),
+        ...(this.secretRouter ? { secretRouter: this.secretRouter } : {}),
+      },
+    );
   }
 
   /** FORMATS §10 agent identity string, preferring the runtime-reported

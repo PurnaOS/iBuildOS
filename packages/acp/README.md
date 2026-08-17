@@ -97,6 +97,27 @@ package's transcript writer (`transcript.ts`) is loss-proof against this
 class of adapter incompatibility regardless — the same test asserts the
 transcript file still has both message chunks, sourced from the raw tap.
 
+### A second confirmed gap: `session/cancel`
+
+`AcpSession.cancel()` (AC-004) sends `session/cancel` the way the real SDK's
+typed surface requires: as a **notification** — it appears only in
+`AgentNotificationHandlersByMethod`, never in `AgentRequestHandlersByMethod`,
+so `ClientContext.notify(methods.agent.session.cancel, {sessionId})` is the
+only way to send it through the builder API, and there is no response to
+await. `packages/stub-agent`'s `agent.ts`, by contrast, was written against
+an assumption that `session/cancel` arrives as a request-with-id (it's
+handled inside `handleRequest`'s switch, which only runs for messages that
+carry an `id`; the JSON-RPC connection routes anything without one — i.e. a
+real notification — to `onNotification`, which is a no-op:
+`onNotification: () => {}`). Driving `hello-world` and calling `cancel()`
+before even awaiting the prompt turn — as favorable a timing as this gets —
+confirms it: the turn still resolves `stopReason: "end_turn"`, never
+`"cancelled"`. Captured as a permanent test in
+`test/stub-agent-hello-world.test.ts` right next to the `session/update`
+finding. Not a bug in this package: `cancel()` puts the correct notification
+on the wire; whether a given agent process acts on it is that agent's own
+protocol conformance.
+
 ### `engine`'s `FakeSecretStore` isn't imported
 
 `packages/engine/src/secrets/secret-store.ts` exports `SecretStore` and

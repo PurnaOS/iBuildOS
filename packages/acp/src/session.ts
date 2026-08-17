@@ -10,6 +10,11 @@ import type { SecretRouter } from "./secret-router.js";
 export interface AcpSessionOptions {
   transcript?: TranscriptWriter;
   secretRouter?: SecretRouter;
+  /** Safety cap on automatic secret-request round-trips per `promptAndDrain`
+   * call (default 3). Without a cap, an agent that keeps re-emitting a
+   * secret-request fence — trivially: one that ignores a `{granted: false}`
+   * answer and asks again — would spin `promptAndDrain` forever. */
+  maxSecretRoundTrips?: number;
 }
 
 export interface PromptTurnResult {
@@ -20,9 +25,17 @@ export interface PromptTurnResult {
   secretRoundTrips: number;
 }
 
+const DEFAULT_MAX_SECRET_ROUND_TRIPS = 3;
+
 export class AcpSession {
   constructor(
     private readonly active: ActiveSession,
+    /** Sends `session/cancel` for this session (AC-004). A plain injected
+     * closure rather than exposing the SDK's `ClientContext` directly here —
+     * `ActiveSession` itself has no public handle back to the connection
+     * that created it, so `client.ts` builds this from the `ClientContext`
+     * it already holds. */
+    private readonly sendCancel: () => Promise<void>,
     private readonly opts: AcpSessionOptions,
   ) {}
 
@@ -47,6 +60,7 @@ export class AcpSession {
     let promptText = text;
     const allUpdates: SessionNotification[] = [];
     let secretRoundTrips = 0;
+    const maxSecretRoundTrips = this.opts.maxSecretRoundTrips ?? DEFAULT_MAX_SECRET_ROUND_TRIPS;
 
     for (;;) {
       await this.active.prompt(promptText);
@@ -64,15 +78,32 @@ export class AcpSession {
         messageText += extractText(message.update);
       }
 
-      const secretAnswer = this.opts.secretRouter
-        ? await this.opts.secretRouter.handleAgentText(messageText)
-        : null;
+      const atCap = secretRoundTrips >= maxSecretRoundTrips;
+      const secretAnswer =
+        this.opts.secretRouter && !atCap ? await this.opts.secretRouter.handleAgentText(messageText) : null;
       if (!secretAnswer) {
         return { updates: allUpdates, response: response!, secretRoundTrips };
       }
       secretRoundTrips += 1;
       promptText = secretAnswer;
     }
+  }
+
+  /** AC-004 — `session/cancel`. Per the ACP schema this is a *notification*
+   * (fire-and-forget: `AgentNotificationHandlersByMethod.session_cancel`),
+   * not a request/response — there is nothing to await beyond delivery.
+   * Whether the agent process actually stops in-flight work is up to that
+   * agent's own handling; see the package README for the empirically-
+   * confirmed finding that packages/stub-agent's real ACP wire behavior for
+   * cancel (a no-op `onNotification`) differs from its own hand-rolled
+   * request/response scenario in agent.ts. */
+  async cancel(): Promise<void> {
+    this.opts.transcript?.write({
+      kind: "system",
+      role: "user",
+      data: { cancel: { sessionId: this.sessionId } },
+    });
+    await this.sendCancel();
   }
 
   private writeUpdateToTranscript(notification: SessionNotification): void {
