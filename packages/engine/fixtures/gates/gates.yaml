@@ -1,0 +1,11 @@
+formats: 1
+gates:
+  requirement-ready: [doc/*, id/*, link/*, state/vocabulary]
+  story-ready:       [doc/*, id/*, link/*, state/*, doc/criteria-items]
+  plan:              [story-ready, chain/req-unimplemented, link/cycles]
+  stream-stage:      [doc/*, id/*, link/*, state/*, evid/tests-passing]
+  stream-done:       [stream-stage, chain/done-honest?scope=stream, sec/committed-secret]
+  merge:             [stream-done, id/duplicate, id/provisional-on-trunk, merge/*,
+                      chain/bug-regression, sec/committed-secret, pin/*]
+  release-deploy:    [merge?scope=release, evid/*, chain/story-untested?scope=release]
+  solo-check:        [chain/bug-regression]

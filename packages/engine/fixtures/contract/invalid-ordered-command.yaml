@@ -1,0 +1,19 @@
+formats: 1
+project:
+  id: 01J9XW4E7NQZ4T8KD2M5B3YHVA
+  name: "Field Inspections"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+contract:
+  components:
+    web:
+      paths: ["app/**", "lib/**"]
+      commands:
+        dev:  ["pnpm", "dev"]
+        test: ["pnpm", "test"]
+        lint: ["pnpm", "lint"]
+      # "migrate" is not declared under commands above — contract/valid should
+      # flag this ordered resource's command reference.
+      ordered: [{ name: migrations, paths: ["drizzle/**"], command: migrate }]
+      safe: [test, deploy]

@@ -1,0 +1,34 @@
+formats: 1
+project:
+  id: 01J9XW4E7NQZ4T8KD2M5B3YHVA
+  name: "Field Inspections"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+contract:
+  components:
+    web:
+      paths: ["app/**", "lib/**"]
+      commands:
+        dev:     ["pnpm", "dev"]
+        test:    ["pnpm", "test"]
+        lint:    ["pnpm", "lint"]
+        seed:    ["pnpm", "db:seed"]
+        migrate: ["pnpm", "db:migrate"]
+        build:   ["pnpm", "build"]
+      preview: { url: "http://localhost:{port}", ready: { path: "/", status: 200 } }
+      ordered: [{ name: migrations, paths: ["drizzle/**"], command: migrate }]
+      safe: [test, lint]
+  deploy:
+    staging:
+      component: web
+      command: ["vercel", "deploy", "--prebuilt"]
+      auth: { secrets: [VERCEL_TOKEN], connect: vercel-login }
+environments:
+  local:   { vars: { DATABASE_URL: "file:./dev.db" } }
+  staging: { vars: {}, secrets: [VERCEL_TOKEN, STRIPE_TEST_KEY] }
+agents:
+  default: claude-code
+  roles: { resolver: codex, test_author: pi }
+mcp:
+  - { name: design-system, command: ["npx", "acme-ds-mcp"] }
