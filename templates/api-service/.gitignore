@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.log
+.DS_Store
+coverage/
+
+# local SQLite state — never committed; migrations in drizzle/ are the record
+dev.db
+dev.db-shm
+dev.db-wal
+*.db
+*.db-shm
+*.db-wal

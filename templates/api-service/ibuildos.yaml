@@ -1,0 +1,37 @@
+formats: 1
+project:
+  id: 01M07MB8GR8BGXPGDJP7HDKPPE   # ULID, generated once at project creation (PS-014) — this scaffold's placeholder
+  name: "API Service"
+engine: ">=1.0.0 <2.0.0"
+profile: { name: ibuildos-default, version: 1.0.0, path: docs/profile }
+bundle: { root: docs }
+template: { name: api-service, version: 1.0.0 }   # TP-007 provenance
+contract:
+  components:
+    api:
+      paths: ["src/**", "scripts/**", "test/**", "drizzle/**"]
+      commands:
+        dev:     ["pnpm", "dev"]
+        test:    ["pnpm", "test"]
+        lint:    ["pnpm", "lint"]
+        seed:    ["pnpm", "db:seed"]
+        migrate: ["pnpm", "db:migrate"]
+        build:   ["pnpm", "build"]
+      preview:
+        url: "http://localhost:{port}"
+        ready: { path: "/health", status: 200 }
+      ordered:
+        - { name: migrations, paths: ["drizzle/**"], command: migrate }
+      safe: [test, lint]
+  deploy:
+    staging:
+      component: api
+      command: ["fly", "deploy", "--remote-only"]
+      auth: { secrets: [FLY_API_TOKEN], connect: fly-login }
+environments:
+  local:
+    vars: { DATABASE_URL: "file:./dev.db" }
+    secrets: []
+  staging:
+    vars: {}
+    secrets: [FLY_API_TOKEN]
