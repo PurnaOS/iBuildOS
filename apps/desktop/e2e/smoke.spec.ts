@@ -70,3 +70,34 @@ test("the Insights section renders dashboards and my queue over real IPC", async
     await app.close();
   }
 });
+
+// The verification work package's own walkthrough (PV/TX/RV-003/RV-004,
+// IG-003): a seeded project's Quality section, run -> accept -> combine,
+// over real Electron IPC end to end (not the renderer-only fake the Vitest
+// suite in src/renderer/src/components/verification/VerificationSection.test.tsx
+// exercises). A separate test() -- and thus a fresh Electron app instance --
+// so it never touches the create-project flow above.
+test("Product-mode verification walkthrough: run tests, accept the story, and combine (RV-003/RV-004, IG-003)", async () => {
+  const app = await electron.launch({ args: [mainEntry] });
+  try {
+    const window = await app.firstWindow();
+    await window.waitForLoadState("domcontentloaded");
+
+    await window.getByText("Equipment Inspections").click();
+    await window.getByRole("button", { name: "Quality" }).click();
+
+    await window.getByRole("tab", { name: "Offline sync" }).click();
+    await window.getByRole("button", { name: "Run tests" }).click();
+    await expect(window.getByText("3 of 3 checks passing")).toBeVisible({ timeout: 5_000 });
+
+    const acceptButton = window.getByRole("button", { name: "Accept story" });
+    await expect(acceptButton).toBeEnabled();
+    await acceptButton.click();
+    await expect(window.getByText("Accepted")).toBeVisible();
+
+    await window.getByRole("button", { name: "Finish & combine" }).click();
+    await expect(window.getByText("Combined with the live product.")).toBeVisible({ timeout: 3_000 });
+  } finally {
+    await app.close();
+  }
+});

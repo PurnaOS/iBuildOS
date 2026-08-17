@@ -64,6 +64,29 @@ const api: IbuildosApi = {
     myQueue: (input) => call("insights.my-queue", input),
     teamNotes: (input) => call("insights.team-notes", input),
   },
+  verification: {
+    preview: {
+      get: (input) => call("verification.preview.get", input),
+      refresh: (input) => call("verification.preview.refresh", input),
+    },
+    tests: {
+      get: (input) => call("verification.tests.get", input),
+      start: (input) => call("verification.tests.start", input),
+      rerunCase: (input) => call("verification.tests.rerunCase", input),
+    },
+    acceptance: {
+      get: (input) => call("verification.acceptance.get", input),
+      decide: (input) => call("verification.acceptance.decide", input),
+      waive: (input) => call("verification.acceptance.waive", input),
+    },
+    merge: {
+      get: (input) => call("verification.merge.get", input),
+      finish: (input) => call("verification.merge.finish", input),
+    },
+    updates: {
+      subscribe: (params, onEvent) => subscribe("verification.updates", params, onEvent),
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld("ibuildos", api);

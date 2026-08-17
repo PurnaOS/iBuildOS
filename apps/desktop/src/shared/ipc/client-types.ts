@@ -39,4 +39,44 @@ export interface IbuildosApi {
     myQueue(input: RequestInput<"insights.my-queue">): Promise<RequestOutput<"insights.my-queue">>;
     teamNotes(input: RequestInput<"insights.team-notes">): Promise<RequestOutput<"insights.team-notes">>;
   };
+  // The "verification" domain (previews/tests/acceptance/merge) — see
+  // ./contract/verification.ts for the schemas and ../../main/backend/
+  // verification.ts for the backend they're validated against.
+  verification: {
+    preview: {
+      get(input: RequestInput<"verification.preview.get">): Promise<RequestOutput<"verification.preview.get">>;
+      refresh(
+        input: RequestInput<"verification.preview.refresh">,
+      ): Promise<RequestOutput<"verification.preview.refresh">>;
+    };
+    tests: {
+      get(input: RequestInput<"verification.tests.get">): Promise<RequestOutput<"verification.tests.get">>;
+      start(input: RequestInput<"verification.tests.start">): Promise<RequestOutput<"verification.tests.start">>;
+      rerunCase(
+        input: RequestInput<"verification.tests.rerunCase">,
+      ): Promise<RequestOutput<"verification.tests.rerunCase">>;
+    };
+    acceptance: {
+      get(
+        input: RequestInput<"verification.acceptance.get">,
+      ): Promise<RequestOutput<"verification.acceptance.get">>;
+      decide(
+        input: RequestInput<"verification.acceptance.decide">,
+      ): Promise<RequestOutput<"verification.acceptance.decide">>;
+      waive(
+        input: RequestInput<"verification.acceptance.waive">,
+      ): Promise<RequestOutput<"verification.acceptance.waive">>;
+    };
+    merge: {
+      get(input: RequestInput<"verification.merge.get">): Promise<RequestOutput<"verification.merge.get">>;
+      finish(input: RequestInput<"verification.merge.finish">): Promise<RequestOutput<"verification.merge.finish">>;
+    };
+    updates: {
+      /** Returns an unsubscribe function. */
+      subscribe(
+        params: ChannelParams<"verification.updates">,
+        onEvent: (event: ChannelEvent<"verification.updates">) => void,
+      ): () => void;
+    };
+  };
 }

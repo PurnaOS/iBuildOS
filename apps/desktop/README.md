@@ -11,10 +11,11 @@ window, Product/Engineering mode switch, ⌘K palette, ⌘J attention queue, ⌘
 chat panel skeleton).
 
 Everything is backed by an **in-memory fake** (`src/main/backend/`, one file
-per domain — `core.ts` today, `streams.ts`/`insights.ts` placeholders for
-later, composed by `index.ts`) — no real git/filesystem/ACP calls.
-`packages/engine` has no build step yet and is not imported here; wiring the
-real engine, ACP layer, and previews into this shell is later milestone work
+per domain — `core.ts` and `verification.ts` (previews/tests/acceptance/
+merge) today, `streams.ts`/`insights.ts` placeholders for later, composed by
+`index.ts`) — no real git/filesystem/ACP calls. `packages/engine` has no
+build step yet and is not imported here; wiring the real engine, ACP layer,
+and previews into this shell is later milestone work
 (`docs/spec/EXECUTION-PLAN.md` M4+).
 
 ## Layout
