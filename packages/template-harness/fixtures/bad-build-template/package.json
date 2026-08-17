@@ -1,0 +1,14 @@
+{
+  "name": "synthetic-fixture-bad-build",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "lint": "node scripts/lint.mjs",
+    "build": "node scripts/build.mjs",
+    "migrate": "node scripts/migrate.mjs",
+    "seed": "node scripts/seed.mjs",
+    "test": "node scripts/test.mjs",
+    "dev": "node scripts/dev.mjs"
+  }
+}

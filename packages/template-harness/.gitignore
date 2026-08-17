@@ -1,0 +1,5 @@
+# Fixture templates get a real `pnpm install` run against them by the test
+# suite (see src/guarantee.test.ts) — the resulting lockfile is regenerated
+# every run and isn't meaningful to diff. node_modules/ is already covered by
+# the root .gitignore at any depth.
+fixtures/*/pnpm-lock.yaml

@@ -1,0 +1,26 @@
+formats: 1
+name: synthetic-fixture-bad-dev
+version: 1.0.0
+engine: ">=1.0.0 <2.0.0"
+description: >-
+  Deliberately broken counter-example: identical to good-template except its "dev" command
+  starts and stays alive but never binds the preview port, proving the harness's preview poll
+  correctly times out and reports a failure instead of hanging forever or false-passing.
+contract:
+  components:
+    app:
+      paths: ["**"]
+      commands:
+        lint: ["pnpm", "run", "lint"]
+        build: ["pnpm", "run", "build"]
+        migrate: ["pnpm", "run", "migrate"]
+        seed: ["pnpm", "run", "seed"]
+        test: ["pnpm", "run", "test"]
+        dev: ["pnpm", "run", "dev"]
+      preview:
+        url: "http://localhost:4320"
+        ready: { path: "/", status: 200 }
+      safe: [lint, test]
+profile: "ibuildos-default@1.0.0"
+environments: {}
+deploy: {}

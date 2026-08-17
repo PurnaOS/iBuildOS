@@ -1,0 +1,26 @@
+formats: 1
+name: synthetic-fixture-good
+version: 1.0.0
+engine: ">=1.0.0 <2.0.0"
+description: >-
+  Minimal synthetic template used by @ibuildos/template-harness's own test suite to prove the
+  harness mechanics against a template.yaml that fully conforms to TemplateManifestSchema and
+  a component whose install/lint/build/migrate/seed/test/dev+preview all succeed.
+contract:
+  components:
+    app:
+      paths: ["**"]
+      commands:
+        lint: ["pnpm", "run", "lint"]
+        build: ["pnpm", "run", "build"]
+        migrate: ["pnpm", "run", "migrate"]
+        seed: ["pnpm", "run", "seed"]
+        test: ["pnpm", "run", "test"]
+        dev: ["pnpm", "run", "dev"]
+      preview:
+        url: "http://localhost:4319"
+        ready: { path: "/", status: 200 }
+      safe: [lint, test]
+profile: "ibuildos-default@1.0.0"
+environments: {}
+deploy: {}
