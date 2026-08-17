@@ -11,3 +11,4 @@ export * from "./brownfield/index.js";
 export * from "./scheduler/index.js";
 export * from "./team/index.js";
 export * from "./change/index.js";
+export * from "./streams/index.js";

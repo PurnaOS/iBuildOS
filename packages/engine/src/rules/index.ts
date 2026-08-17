@@ -8,3 +8,4 @@ export * from "./doc-structure.js";
 export * from "./links.js";
 export * from "./state.js";
 export * from "./chain.js";
+export * from "./merge.js";
