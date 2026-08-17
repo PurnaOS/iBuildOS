@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "requiredStatusChecks": null,
+  "requiredPullRequestReviews": null,
+  "enforceAdmins": false
+}

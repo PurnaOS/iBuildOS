@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "requiredStatusChecks": { "strict": true, "contexts": ["lint", "unit-tests"] },
+  "requiredPullRequestReviews": { "requiredApprovingReviewCount": 1 },
+  "enforceAdmins": true
+}

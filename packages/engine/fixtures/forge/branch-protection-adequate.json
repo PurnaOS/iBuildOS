@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "requiredStatusChecks": { "strict": true, "contexts": ["ibuildos/gate"] },
+  "requiredPullRequestReviews": { "requiredApprovingReviewCount": 1 },
+  "enforceAdmins": true
+}
