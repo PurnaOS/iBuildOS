@@ -1,0 +1,13 @@
+{
+  "name": "hello-tool-call",
+  "description": "hello-world-derived: the same two message chunks, then a completed tool call, no trailing text. Proves the bridge's ACP session/update -> AG-UI event mapping for both text streaming and tool calls in one scripted turn.",
+  "updates": [
+    { "kind": "message_chunk", "data": { "text": "Hello" } },
+    { "kind": "message_chunk", "data": { "text": ", world." } },
+    {
+      "kind": "tool_call",
+      "data": { "toolCallId": "tc-1", "title": "List files", "kind": "read", "status": "completed" }
+    }
+  ],
+  "stopReason": "end_turn"
+}
