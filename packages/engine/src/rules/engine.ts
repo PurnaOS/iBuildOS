@@ -1,4 +1,9 @@
-import { ArtifactIdSchema, FINAL_ID_PATTERN, type Finding } from "@ibuildos/schemas";
+import {
+  ArtifactIdSchema,
+  FINAL_ID_PATTERN,
+  resolveSeverity,
+  type Finding,
+} from "@ibuildos/schemas";
 import type { ResolvedType } from "../profile/registry.js";
 
 // FORMATS.md §6 rule registry — this pass implements the three rules needed
@@ -21,7 +26,7 @@ export function checkIdFormat(artifactId: string): Finding[] {
   return [
     {
       rule: "id/format",
-      severity: "error",
+      severity: resolveSeverity("id/format"),
       artifact: artifactId,
       subject: "id",
       message: `"${artifactId}" does not match <PREFIX>-<NNNN> (FORMATS.md §2)`,
@@ -40,7 +45,7 @@ export function checkFieldRequired(
     if (frontmatter[key] === undefined) {
       findings.push({
         rule: "doc/field-required",
-        severity: "error",
+        severity: resolveSeverity("doc/field-required"),
         artifact: artifactId,
         subject: key,
         message: `required field "${key}" is missing (FORMATS.md §4)`,
@@ -52,7 +57,7 @@ export function checkFieldRequired(
     if (def.required && frontmatter[key] === undefined) {
       findings.push({
         rule: "doc/field-required",
-        severity: "error",
+        severity: resolveSeverity("doc/field-required"),
         artifact: artifactId,
         subject: key,
         message: `required field "${key}" is missing (declared by type "${type.name}")`,
@@ -105,7 +110,7 @@ export function checkFieldKind(
     if (!matchesKind(value, def)) {
       findings.push({
         rule: "doc/field-kind",
-        severity: "error",
+        severity: resolveSeverity("doc/field-kind"),
         artifact: artifactId,
         subject: key,
         message: `field "${key}" does not match declared kind "${def.kind}"`,

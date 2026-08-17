@@ -2,7 +2,9 @@ import { z } from "zod";
 
 // FORMATS.md §12 — stable findings JSON schema (the CLI's machine-readable output).
 
-export const SeveritySchema = z.enum(["error", "warning", "info"]);
+// "warn", not "warning" — matches FORMATS.md §6's own rule-table column
+// exactly (FORMATS is byte-authoritative; see CLAUDE.md's precedence rule).
+export const SeveritySchema = z.enum(["error", "warn", "info"]);
 
 export const FindingSchema = z.object({
   rule: z.string(),
