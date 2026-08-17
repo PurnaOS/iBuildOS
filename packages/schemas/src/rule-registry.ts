@@ -69,6 +69,13 @@ export const RULE_REGISTRY: Record<string, RuleMetadata> = Object.fromEntries(
     rule("docs/todo-marker", "warn"),
     rule("drift/retired-referenced", "warn"),
     rule("drift/unrecorded-change", "warn"),
+    // Not present in FORMATS.md §6's table (the forge/GH area has no rows
+    // there yet). Invented for GH-007 (branch-protection setup/verification)
+    // by the forge work package (packages/engine/src/forge/rules.ts);
+    // appended per this file's own "rule IDs frozen, new rules append"
+    // convention. No FORMATS-stated severity, so "warn" per the documented
+    // fallback above.
+    rule("gh/branch-protection-missing", "warn"),
   ].map((r) => [r.id, r]),
 );
 

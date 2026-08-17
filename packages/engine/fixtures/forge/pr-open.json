@@ -1,0 +1,8 @@
+{
+  "number": 42,
+  "url": "https://forge.example/acme/widgets/pull/42",
+  "headBranch": "stream/st-0102-oauth-refresh",
+  "baseBranch": "main",
+  "headSha": "3f1a9c2e7b4d5a6f8e9c0d1b2a3f4e5d6c7b8a9f",
+  "state": "open"
+}

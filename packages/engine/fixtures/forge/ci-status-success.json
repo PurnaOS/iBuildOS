@@ -1,0 +1,8 @@
+{
+  "state": "success",
+  "checks": [
+    { "name": "ibuildos/gate", "state": "success", "requiredForMerge": true },
+    { "name": "lint", "state": "success", "requiredForMerge": false },
+    { "name": "unit-tests", "state": "success", "requiredForMerge": false }
+  ]
+}
