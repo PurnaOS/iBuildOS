@@ -8,3 +8,4 @@ export * from "./graph/index.js";
 export * from "./git/index.js";
 export * from "./secrets/index.js";
 export * from "./brownfield/index.js";
+export * from "./scheduler/index.js";
