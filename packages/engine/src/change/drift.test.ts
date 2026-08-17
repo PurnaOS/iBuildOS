@@ -52,6 +52,18 @@ body: { sections: [] }
 `,
     `---
 type: TypeDefinition
+defines: Task
+extends: WorkItem
+abstract: false
+prefix: TA
+fields: {}
+links:
+  parent: { target: [Story] }
+body: { sections: [] }
+---
+`,
+    `---
+type: TypeDefinition
 defines: Change
 abstract: false
 prefix: CH
@@ -126,6 +138,19 @@ describe("drift/retired-referenced", () => {
       },
     ]);
     expect(checkRetiredReferenced(graph)).toEqual([]);
+  });
+
+  it("has no gate override yet — resolves to its default severity regardless of context", () => {
+    const graph = new ArtifactGraph([
+      { id: "RQ-0001", type: "Requirement", frontmatter: { state: "retired" } },
+      {
+        id: "ST-0001",
+        type: "Story",
+        frontmatter: { state: "building", links: { implements: ["RQ-0001"] } },
+      },
+    ]);
+    expect(checkRetiredReferenced(graph)[0]?.severity).toBe("warn");
+    expect(checkRetiredReferenced(graph, "merge")[0]?.severity).toBe("warn");
   });
 });
 
@@ -207,5 +232,47 @@ describe("drift/unrecorded-change", () => {
       },
     ]);
     expect(checkUnrecordedChange(graph, registry)).toEqual([]);
+  });
+
+  it("reaches a done Task's requirement indirectly via its parent Story (Task declares no implements of its own)", () => {
+    const registry = buildRegistry();
+    const graph = new ArtifactGraph([
+      { id: "RQ-0020", type: "Requirement", frontmatter: { state: "retired" } },
+      {
+        id: "ST-0020",
+        type: "Story",
+        frontmatter: { state: "building", links: { implements: ["RQ-0020"] } },
+      },
+      {
+        id: "TA-0020",
+        type: "Task",
+        frontmatter: { state: "done", links: { parent: ["ST-0020"] } },
+      },
+    ]);
+
+    const findings = checkUnrecordedChange(graph, registry);
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        rule: "drift/unrecorded-change",
+        severity: "warn",
+        artifact: "TA-0020",
+        subject: "RQ-0020",
+      }),
+    ]);
+  });
+
+  it("has no gate override yet — resolves to its default severity regardless of context", () => {
+    const registry = buildRegistry();
+    const graph = new ArtifactGraph([
+      { id: "RQ-0001", type: "Requirement", frontmatter: { state: "retired" } },
+      {
+        id: "ST-0001",
+        type: "Story",
+        frontmatter: { state: "done", links: { implements: ["RQ-0001"] } },
+      },
+    ]);
+    expect(checkUnrecordedChange(graph, registry)[0]?.severity).toBe("warn");
+    expect(checkUnrecordedChange(graph, registry, "merge")[0]?.severity).toBe("warn");
   });
 });

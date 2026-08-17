@@ -1,6 +1,6 @@
 import { resolveSeverity, type Finding } from "@ibuildos/schemas";
 import type { ProfileRegistry } from "../profile/registry.js";
-import { ArtifactGraph, baseArtifactId, isRecord } from "../graph/graph.js";
+import { ArtifactGraph, type GraphArtifact, baseArtifactId, isRecord } from "../graph/graph.js";
 
 // SPEC.md area M, CH-008 — deterministic drift detection: divergence the graph alone can
 // prove, with no semantic judgment (that's RQ-012's on-demand agent review, and CH-010's
@@ -47,9 +47,11 @@ function recordedChangeTargets(graph: ArtifactGraph, registry: ProfileRegistry):
  * a transitive walk: the shipped profile already models `verifies`/`implements` as
  * direct edges to the Requirement they concern, so the named cases (a TestCase still
  * verifying a retired Requirement, a Story still implementing a superseded one) are one
- * hop away. The `supersedes` edge itself is excluded from "referencer" edges: the newer
- * Requirement declaring `supersedes: [old]` is the correct record that it moved, not
- * drift — flagging it would make recording a supersession trip its own detector. */
+ * hop away. Every `supersedes` edge is excluded from "referencer" edges, universally —
+ * not just when the edge is *why* its target is in scope this iteration. A `supersedes`
+ * edge is definitionally the correct record that its target moved, whether or not the
+ * target also happens to be independently `retired`; flagging it would make recording a
+ * supersession trip its own detector. */
 export function checkRetiredReferenced(graph: ArtifactGraph, context?: string): Finding[] {
   const superseded = supersededTargetIds(graph);
   const findings: Finding[] = [];
@@ -87,11 +89,33 @@ export function checkRetiredReferenced(graph: ArtifactGraph, context?: string): 
   );
 }
 
+/** The Requirement(s) an artifact traces to for `drift/unrecorded-change`'s purposes:
+ * its own direct `implements` targets when it declares any (Story, Epic — both declare
+ * `implements: [Requirement]` in docs/profile/*.md); otherwise, one hop through `parent`
+ * to the WorkItem it belongs to and *that* artifact's `implements` targets instead. This
+ * covers Task, which carries `parent -> Story` but no `implements` of its own
+ * (docs/profile/task.md) — the shipped profile's most common "built work traces to a
+ * requirement only indirectly" shape, and (per CH-008's own wording, "stories whose
+ * requirement moved") the case this rule most needs to catch. Two hops, both via a
+ * fixed, named relationship — not a general transitive walk. */
+function nearbyRequirements(graph: ArtifactGraph, artifact: GraphArtifact): GraphArtifact[] {
+  const resolve = (edges: { targetId: string }[]): GraphArtifact[] =>
+    edges.map((e) => graph.get(e.targetId)).filter((a): a is GraphArtifact => a !== undefined);
+
+  const direct = resolve(graph.outgoing(artifact.id, "implements"));
+  if (direct.length > 0) return direct;
+
+  return graph
+    .outgoing(artifact.id, "parent")
+    .flatMap((edge) => resolve(graph.outgoing(edge.targetId, "implements")));
+}
+
 /** `drift/unrecorded-change` (warn) — a `done`/`accepted` WorkItem-satisfying artifact
- * whose `implements` target has since been retired or superseded, with no Change
- * artifact (CH-002) recording it against either the work item or the requirement. Built
- * work quietly resting on a moved requirement (CH-008's "stories whose requirement
- * moved") — surfaced as a finding rather than left as silent rot (CH-005). */
+ * whose nearby Requirement (see `nearbyRequirements`) has since been retired or
+ * superseded, with no Change artifact (CH-002) recording it against either the work item
+ * or the requirement. Built work quietly resting on a moved requirement (CH-008's
+ * "stories whose requirement moved") — surfaced as a finding rather than left as silent
+ * rot (CH-005). */
 export function checkUnrecordedChange(
   graph: ArtifactGraph,
   registry: ProfileRegistry,
@@ -106,10 +130,7 @@ export function checkUnrecordedChange(
     const state = artifact.frontmatter.state;
     if (state !== "done" && state !== "accepted") continue;
 
-    for (const edge of graph.outgoing(artifact.id, "implements")) {
-      const requirement = graph.get(edge.targetId);
-      if (!requirement) continue;
-
+    for (const requirement of nearbyRequirements(graph, artifact)) {
       const isRetired = requirement.frontmatter.state === "retired";
       const isSuperseded = superseded.has(requirement.id);
       if (!isRetired && !isSuperseded) continue;
