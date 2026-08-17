@@ -1,0 +1,46 @@
+formats: 1
+name: api-service
+version: 1.0.0
+engine: ">=1.0.0 <2.0.0"
+description: >-
+  Hono + Node + SQLite (Drizzle) API service — a health check and a
+  CRUD-ish /items route backed by a real Drizzle-migrated SQLite database,
+  with Vitest tests exercising both through Hono's own request() helper.
+contract:
+  components:
+    api:
+      paths: ["src/**", "scripts/**", "drizzle/**"]
+      commands:
+        dev:     ["pnpm", "dev"]
+        test:    ["pnpm", "test"]
+        lint:    ["pnpm", "lint"]
+        seed:    ["pnpm", "db:seed"]
+        migrate: ["pnpm", "db:migrate"]
+        build:   ["pnpm", "build"]
+      # PV-008: no browsable UI, so the preview surface is a health-check hit
+      # rather than a page load — {port} is allocated by iBuildOS and
+      # injected as PORT (FORMATS.md §7).
+      preview:
+        url: "http://localhost:{port}"
+        ready: { path: "/health", status: 200 }
+      ordered:
+        - { name: migrations, paths: ["drizzle/**"], command: migrate }
+      safe: [test, lint]
+profile: ibuildos-default@1.0.0
+environments:
+  local:
+    vars: { DATABASE_URL: "file:./dev.db" }
+    secrets: []
+  staging:
+    vars: {}
+    secrets: [FLY_API_TOKEN]
+deploy:
+  staging:
+    component: api
+    command: ["fly", "deploy", "--remote-only"]
+    auth: { secrets: [FLY_API_TOKEN], connect: fly-login }
+seed_note: >-
+  `pnpm db:seed` inserts two sample rows into the `items` table at
+  DATABASE_URL (default file:./dev.db) via Drizzle — proves the DB path is
+  real, not just declared. Migrations run automatically on every db open
+  (dev, test, seed, and migrate all go through src/db/client.ts).
