@@ -1,0 +1,23 @@
+formats: 1
+name: static-site
+version: 1.0.0
+engine: ">=1.0.0 <2.0.0"
+description: "Astro + Tailwind static site (T-012) — homepage, one content-collection page, no database."
+contract:
+  components:
+    site:
+      paths: ["src/**", "public/**"]
+      commands:
+        dev:   ["pnpm", "dev"]
+        test:  ["pnpm", "test"]
+        lint:  ["pnpm", "lint"]
+        build: ["pnpm", "build"]
+      preview: { url: "http://localhost:{port}", ready: { path: "/", status: 200 } }
+      safe: [test, lint, build]
+profile: "ibuildos-default@1.0.0"
+deploy:
+  production:
+    component: site
+    command: ["netlify", "deploy", "--prod", "--dir=dist"]
+    auth: { secrets: [NETLIFY_AUTH_TOKEN, NETLIFY_SITE_ID], connect: netlify-login }
+seed_note: "No database or backend — the content collection under src/content/posts is the only seed data, committed with the template."

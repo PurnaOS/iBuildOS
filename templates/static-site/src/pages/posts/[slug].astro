@@ -1,0 +1,29 @@
+---
+import { getCollection, render } from "astro:content";
+import Layout from "../../layouts/Layout.astro";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts");
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={post.data.title}>
+  <p class="text-sm uppercase tracking-wide text-sky-400">
+    {post.data.date.toISOString().slice(0, 10)}
+  </p>
+  <h1 class="mt-2 text-3xl font-bold text-white">{post.data.title}</h1>
+  <p class="mt-2 text-slate-400">{post.data.description}</p>
+  <div class="mt-8 space-y-4 leading-relaxed text-slate-200">
+    <Content />
+  </div>
+  <a href="/" class="mt-8 inline-block text-sm text-sky-400 hover:text-sky-300">
+    &larr; Back home
+  </a>
+</Layout>
